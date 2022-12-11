@@ -64,8 +64,3 @@ class PropertyTest(TestCase):
         c = Child()
         self.assertIs(sentinel, c.a)
         self.assertIs(sentinel, c.d)
-
-    def test_default_params(self):
-        class ParameterizedDefaults(PropertyClass):
-            primary = Property[int]()
-            def _default_value(self, offset, gain):

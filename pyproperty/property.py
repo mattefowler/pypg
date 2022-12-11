@@ -6,10 +6,6 @@ from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 T = TypeVar("T")
 
 
-class Property:
-    pass
-
-
 class PropertyType(type):
     def __init__(cls, name: str, bases: tuple[type], attrs: dict[str, Any]):
         super().__init__(name, bases, attrs)
@@ -91,11 +87,6 @@ class _InitializationContext(metaclass=_InitMeta):
         while self._uninitialized:
             p = self._uninitialized[0]
             self.init_property(p)
-
-
-class PropertyClass(metaclass=PropertyType):
-    def __init__(self, **config):
-        super().__init__(**config)
 
 
 class FactoryMethod(Protocol[T]):
@@ -202,10 +193,7 @@ class Property(Generic[T]):
         instance.__dict__[self] = value
 
     def __get__(self, instance: PropertyClass, owner: PropertyType):
-        if instance is None:
-            return self
-
-        return self._getter(instance)
+        return self if instance is None else self._getter(instance)
 
     def __set__(self, instance, value):
         self._setter(instance, value)
@@ -215,3 +203,8 @@ class Property(Generic[T]):
 
     def set(self, instance, value):
         return setattr(instance, self.name, value)
+
+
+class PropertyClass(metaclass=PropertyType):
+    def __init__(self, **config):
+        super().__init__(**config)
