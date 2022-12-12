@@ -1,5 +1,20 @@
 from __future__ import annotations
 
+__all__ = [
+    "DefaultFactory",
+    "Factory",
+    "FactoryMethod",
+    "PostGet",
+    "PostSet",
+    "PreSet",
+    "Property",
+    "PropertyType",
+    "PropertyClass",
+    "Trait",
+]
+
+import itertools
+from abc import ABC, abstractmethod
 from functools import cached_property
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 
@@ -15,6 +30,8 @@ class PropertyType(type):
                 value.__bind__(name, cls)
                 properties.append(value)
         cls.__properties = tuple(properties)
+        for p in cls.properties:
+            p.__bind_subclass__(cls)
         cls.__create_initializer(cls)
 
     @property
@@ -76,7 +93,7 @@ class _InitializationContext(metaclass=_InitMeta):
             value = self.config.pop(p.name)
         except KeyError:
             value = p.create_default_value(self._instance)
-        setattr(self._instance, p.name, value)
+        p.__init_instance__(self._instance, value)
         self._uninitialized.remove(p)
 
     @classmethod
@@ -89,13 +106,13 @@ class _InitializationContext(metaclass=_InitMeta):
             self.init_property(p)
 
 
-class FactoryMethod(Protocol[T]):
+class Factory(Protocol[T]):
     def __call__(self, instance: PropertyClass, *args, **kwargs) -> T:
         pass
 
 
 class DefaultFactory(Generic[T]):
-    def __init__(self, factory: FactoryMethod[T], *args, **kwargs):
+    def __init__(self, factory: Factory[T], *args, **kwargs):
         self._factory = factory
         self._args = args
         self._kwargs = kwargs
@@ -104,19 +121,38 @@ class DefaultFactory(Generic[T]):
         return self._factory(instance, *self._args, **self._kwargs)
 
 
-class InstanceMethodDefault(DefaultFactory[T]):
+class FactoryMethod(DefaultFactory[T]):
     def __call__(self, instance: PropertyClass) -> T:
         factory = getattr(instance, self._factory.__name__)
         return factory(*self._args, **self._kwargs)
 
 
-class ClassMethodDefault(DefaultFactory[T]):
-    def __call__(self, instance: PropertyClass) -> T:
-        factory = getattr(type(instance), self._factory.__name__)
-        return factory(*self._args, **self._kwargs)
+class Trait:
+    def __init__(self, subject: Property = None):
+        self.subject = subject
+
+    def __bind__(self, subject: Property):
+        self.subject = subject
+
+    def __init_instance__(self, instance: PropertyClass):
+        pass
 
 
-class PropertyTrait:
+class DataModifier(Trait, ABC):
+    @abstractmethod
+    def apply(self, instance, value) -> Any:
+        """Perform the required modification of the data and return the result."""
+
+
+class PostGet(DataModifier, ABC):
+    pass
+
+
+class PreSet(DataModifier, ABC):
+    pass
+
+
+class PostSet(DataModifier, ABC):
     pass
 
 
@@ -141,19 +177,34 @@ def overridable(accessor: Getter | Setter):
     return __call__
 
 
-class Property(Generic[T]):
+class _PropertyMeta(type):
+    def __instancecheck__(cls, instance):
+        if isinstance(instance, Property._Proxy):
+            instance = instance._property
+        return super().__instancecheck__(instance)
+
+
+TraitProvider = Trait | classmethod
+
+
+class Property(Generic[T], metaclass=_PropertyMeta):
     def __init__(
         self,
         default: DEFAULT_TYPES = None,
         getter: Getter[T] = None,
         setter: Setter[T] = None,
+        traits: TraitProvider | Iterable[TraitProvider] = (),
     ):
         super().__init__()
+        self._subclass_proxies: dict[PropertyType, Property._Proxy] = {}
         self._default = default
         self.name = None
         self.__declaring_type = None
         self._getter = self.default_getter if getter is None else getter
         self._setter = self.default_setter if setter is None else setter
+        self.__traits = tuple(
+            filter(None, traits if isinstance(traits, Iterable) else [traits])
+        )
 
     @cached_property
     def value_type(self):
@@ -161,12 +212,17 @@ class Property(Generic[T]):
 
     def __bind__(self, name, cls: PropertyType):
         self.name = name
-        if self.__declaring_type is None:
-            self.__declaring_type = cls
-        self.__bind_subclass__(cls)
+        self.__declaring_type = cls
 
     def __bind_subclass__(self, cls):
-        pass
+        proxy = self._Proxy(self, cls)
+        for t in proxy.traits:
+            t.__bind__(self)
+        self._subclass_proxies[cls] = proxy
+
+    def __init_instance__(self, instance: PropertyClass, value):
+        proxy = self._subclass_proxies[type(instance)]
+        proxy.__init_instance__(instance, value)
 
     def create_default_value(self, instance):
         return (
@@ -193,7 +249,8 @@ class Property(Generic[T]):
         instance.__dict__[self] = value
 
     def __get__(self, instance: PropertyClass, owner: PropertyType):
-        return self if instance is None else self._getter(instance)
+        proxy = self._subclass_proxies[owner]
+        return proxy if instance is None else proxy.get(instance)
 
     def __set__(self, instance, value):
         self._setter(instance, value)
@@ -203,6 +260,68 @@ class Property(Generic[T]):
 
     def set(self, instance, value):
         return setattr(instance, self.name, value)
+
+    @property
+    def traits(self):
+        return self.__traits
+
+    class _Proxy:
+        def __init__(self, p: Property, owner: PropertyClass):
+            self._property = p
+            self.__owner = owner
+            self.__traits = tuple(
+                itertools.chain.from_iterable(
+                    map(self.__get_traits, self._property.traits)
+                )
+            )
+            self.__post_get = tuple(
+                t for t in self.__traits if isinstance(t, PostGet)
+            )
+            self.__pre_set = tuple(
+                t for t in self.__traits if isinstance(t, PreSet)
+            )
+            self.__post_set = tuple(
+                t for t in self.__traits if isinstance(t, PostSet)
+            )
+
+        def __getattr__(self, item):
+            return getattr(self._property, item)
+
+        def __get_traits(
+            self, trait_provider: Trait | classmethod
+        ) -> Iterable[Trait]:
+            if isinstance(trait_provider, Trait):
+                yield trait_provider
+            else:
+                result = getattr(self.__owner, trait_provider.__name__)()
+                if result is None:
+                    return
+                if isinstance(result, Trait):
+                    yield result
+                else:
+                    yield from result
+
+        def get(self, instance):
+            result = self._property._getter(instance)
+            for t in self.__post_get:
+                result = t.apply(instance, result)
+            return result
+
+        def set(self, instance, value):
+            for t in self.__pre_set:
+                value = t.apply(instance, value)
+            self._property._setter(instance, value)
+            for t in self.__post_set:
+                t.apply(instance, value)
+
+        def __init_instance__(self, instance, value):
+            for t in self.traits:
+                t.__init_instance__(instance)
+            self.set(instance, value)
+
+        @property
+        def traits(self):
+            return self.__traits
 
 
 class PropertyClass(metaclass=PropertyType):
