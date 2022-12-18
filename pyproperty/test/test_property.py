@@ -4,13 +4,13 @@ from pyproperty.property import (
     PostSet,
     Property,
     PropertyClass,
-    FactoryMethod,
-    overridable,
+    MethodReference
 )
 from pyproperty.traits import (
     AsynchronousDelivery,
     Observable,
     OnChange,
+    SynchronousDelivery,
     Unit,
     watch,
 )
@@ -20,13 +20,13 @@ class Example(PropertyClass):
     def _default_a(self):
         return self.b * self.c
 
-    a = Property[float](default=FactoryMethod(_default_a))
+    a = Property[float](default=MethodReference(_default_a))
 
     @classmethod
     def _default_b(cls):
         return 1
 
-    b = Property[float](default=FactoryMethod(_default_b))
+    b = Property[float](default=MethodReference(_default_b))
     c = Property[int](default=1)
 
     def _get_d(self):
@@ -36,7 +36,7 @@ class Example(PropertyClass):
     def _d_traits(cls):
         return Unit("mm")
 
-    d = Property[float](getter=overridable(_get_d), traits=_d_traits)
+    d = Property[float](getter=MethodReference(_get_d), traits=_d_traits)
 
 
 class PropertyTest(TestCase):
@@ -114,7 +114,7 @@ class PropertyTest(TestCase):
             ) as w2_subscription,
         ):
             w0.p = 0
-            self.assertTrue(w0_event.wait(1))
+            self.assertTrue(w0_event.wait(2))
             self.assertEqual([0], w0_data)
 
             self.assertFalse(w1_event.is_set())
@@ -126,4 +126,24 @@ class PropertyTest(TestCase):
             self.assertEqual([1], w1_data)
 
             self.assertFalse(w0_event.is_set())
+            self.assertEqual([0], w0_data)
+
+        w0_data.clear()
+        w1_data.clear()
+
+        with (
+            watch(
+                w0, "p", SynchronousDelivery(w0_receiver, OnChange())
+            ) as w_subscription,
+            watch(
+                w1, "p", SynchronousDelivery(w1_receiver, OnChange())
+            ) as w2_subscription,
+        ):
+            w0.p = 0
+            self.assertEqual([0], w0_data)
+            self.assertFalse(w1_data)
+            w0_event.clear()
+
+            w1.p = 1
+            self.assertEqual([1], w1_data)
             self.assertEqual([0], w0_data)

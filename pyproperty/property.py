@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 __all__ = [
-    "DefaultFactory",
+    "FunctionReference",
     "Factory",
-    "FactoryMethod",
+    "MethodReference",
     "PostGet",
     "PostSet",
     "PreSet",
@@ -111,20 +111,36 @@ class Factory(Protocol[T]):
         pass
 
 
-class DefaultFactory(Generic[T]):
-    def __init__(self, factory: Factory[T], *args, **kwargs):
-        self._factory = factory
+class FunctionReference(Generic[T]):
+    def __init__(self, func: Protocol[T], *args, **kwargs):
+        self._func = func
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self, instance) -> T:
-        return self._factory(instance, *self._args, **self._kwargs)
+    def _get_call_params(self, args, kwargs):
+        if args:
+            args = (*args, self._args)
+        else:
+            args = self._args
+
+        if kwargs:
+            kw = self._kwargs.copy()
+            kw.update(kwargs)
+            kwargs = kw
+        else:
+            kwargs = self._kwargs
+        return args, kwargs
+
+    def __call__(self, *args, **kwargs) -> T:
+        args, kwargs = self._get_call_params(args, kwargs)
+        return self._func(*args, **kwargs)
 
 
-class FactoryMethod(DefaultFactory[T]):
-    def __call__(self, instance: PropertyClass) -> T:
-        factory = getattr(instance, self._factory.__name__)
-        return factory(*self._args, **self._kwargs)
+class MethodReference(FunctionReference[T]):
+    def __call__(self, instance: PropertyClass, *args, **kwargs) -> T:
+        bound = getattr(instance, self._func.__name__)
+        args, kwargs = self._get_call_params(args, kwargs)
+        return bound(*args, **kwargs)
 
 
 class Trait:
@@ -156,7 +172,7 @@ class PostSet(DataModifier, ABC):
     pass
 
 
-DEFAULT_TYPES = DefaultFactory | FactoryMethod | T | None
+DEFAULT_TYPES = FunctionReference[Factory] | T | None
 
 
 class Getter(Protocol):
@@ -168,13 +184,6 @@ class Setter(Protocol):
     def __call__(self, instance: PropertyClass, value: T) -> Any:
         """Assign a value to an attribute of an instance. Any return value
         will be ignored."""
-
-
-def overridable(accessor: Getter | Setter):
-    def __call__(instance, *args, **kwargs):
-        return getattr(instance, accessor.__name__)(*args, **kwargs)
-
-    return __call__
 
 
 class _PropertyMeta(type):
@@ -227,7 +236,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def create_default_value(self, instance):
         return (
             self._default(instance)
-            if isinstance(self._default, (DefaultFactory, Callable))
+            if isinstance(self._default, (FunctionReference, Callable))
             else self._default
         )
 
@@ -253,7 +262,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         return proxy if instance is None else proxy.get(instance)
 
     def __set__(self, instance, value):
-        self._setter(instance, value)
+        self._subclass_proxies[type(instance)].set(instance, value)
 
     def get(self, instance):
         return getattr(instance, self.name)
