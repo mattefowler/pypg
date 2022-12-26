@@ -9,7 +9,9 @@ def _disallow(name):
 
 
 class LoadPolicy(Protocol):
-    def __call__(self, typedict: dict[str, type], fully_qualified_name: str):
+    def __call__(
+        self, typedict: dict[str, type], fully_qualified_name: str
+    ):  # pragma: no cover
         pass
 
 
@@ -22,7 +24,7 @@ def strict(typedict: dict[str, type], fully_qualified_name: str):
 
 def allow_subclass(typedict: dict[str, type], fully_qualified_name: str):
     t: type = _locate(fully_qualified_name)
-    if t in any(issubclass(t, allowed) for allowed in typedict.values()):
+    if any(issubclass(t, allowed) for allowed in typedict.values()):
         return t
 
 
@@ -39,6 +41,9 @@ class Locator:
 
     def __call__(self, fully_qualified_name: str):
         if self.__load_policy:
-            self.__load_policy(self.__allowed, fully_qualified_name)
+            return self.__load_policy(self.__allowed, fully_qualified_name)
         else:
-            return _locate(fully_qualified_name)
+            result = _locate(fully_qualified_name)
+            if result is None:
+                raise TypeError(f"unable to locate {fully_qualified_name}")
+            return result

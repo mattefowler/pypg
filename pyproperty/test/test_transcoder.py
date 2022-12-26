@@ -42,17 +42,13 @@ class TranscoderTest(TestCase):
 
     def test_propertyclass_transcoding(self):
 
-        i0, i1, i2 = (
-            TestClass(a=0, b=1),
-            TestClass(a=1, b=2),
-            TestClass(a=2, b=3),
-        )
-        i0.c[i0] = [i1, i2]
-        i2.c[i1] = [i2, i0]
-        i1.c[i2] = [i0, i1]
-        encoded = encode(i0)
-        i0_copy = decode(encoded)
-        i0c, i1c, i2c = i0_copy.c[i0_copy]
-        self.assertIs(i0_copy, i0c)
-        self.assertEqual([i0c, i1c], i1c.c[i2c])
-        self.assertEqual([i2c, i1c, i0c], i1c.c[i1c])
+        i0 = TestClass(a=0, b=1)
+        i1 = TestClass(a=1, b=2, c={i0: [i0]})
+        i2 = TestClass(a=2, b=3, c={i1: [i0, i1]})
+        encoded = encode(i2)
+        i2c = decode(encoded)
+        ((i1c, [i0c, _i1c]),) = i2c.c.items()
+        self.assertIs(i1c, _i1c)
+        ((_i0c, [__i0c]),) = i1c.c.items()
+        self.assertIs(i0c, _i0c)
+        self.assertIs(_i0c, __i0c)

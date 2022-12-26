@@ -212,8 +212,8 @@ class DictEncoder(Encoder, handler_for=dict):
 class DictDecoder(Decoder, handler_for=dict):
     def _decode(self, obj_type: type, value: dict) -> Any:
         return {
-            Decoder(self.encoded_data, key, self.locator, self): Decoder(
-                self.encoded_data, value, self.locator, self
-            )
+            Decoder(self.encoded_data, key, self.locator, self)
+            .instance: Decoder(self.encoded_data, value, self.locator, self)
+            .instance
             for key, value in value.items()
         }

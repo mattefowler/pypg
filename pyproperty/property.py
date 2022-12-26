@@ -18,6 +18,8 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 
+from pyproperty.type_utils import get_fully_qualified_name
+
 T = TypeVar("T")
 
 
@@ -107,7 +109,9 @@ class _InitializationContext(metaclass=_InitMeta):
 
 
 class Factory(Protocol[T]):
-    def __call__(self, instance: PropertyClass, *args, **kwargs) -> T:
+    def __call__(
+        self, instance: PropertyClass, *args, **kwargs
+    ) -> T:  # pragma: no cover
         pass
 
 
@@ -119,7 +123,7 @@ class FunctionReference(Generic[T]):
 
     def _get_call_params(self, args, kwargs):
         if args:
-            args = (*args, self._args)
+            args = (*args, *self._args)
         else:
             args = self._args
 
@@ -247,10 +251,14 @@ class Property(Generic[T], metaclass=_PropertyMeta):
             init_ctx = None
             try:
                 init_ctx = _InitializationContext.for_instance(instance)
-            except KeyError:
+            except KeyError as k:
                 pass
             if init_ctx is None:
-                raise
+                raise AttributeError(
+                    f"object {instance} as no property {self}",
+                    obj=instance,
+                    name=self.name,
+                )
             init_ctx.init_property(self)
             return self.default_getter(instance)
 
@@ -264,18 +272,21 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def __set__(self, instance, value):
         self._subclass_proxies[type(instance)].set(instance, value)
 
-    def get(self, instance):
+    def get(self, instance):  # pragma: no cover
         return getattr(instance, self.name)
 
-    def set(self, instance, value):
+    def set(self, instance, value):  # pragma: no cover
         return setattr(instance, self.name, value)
 
     @property
     def traits(self):
         return self.__traits
 
+    def __str__(self):
+        return f"{get_fully_qualified_name(self.__declaring_type)}.{self.name}"
+
     class _Proxy:
-        def __init__(self, p: Property, owner: PropertyClass):
+        def __init__(self, p: Property, owner: type[PropertyClass]):
             self._property = p
             self.__owner = owner
             self.__traits = tuple(
@@ -331,6 +342,9 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         @property
         def traits(self):
             return self.__traits
+
+        def __str__(self):
+            return f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
 
 
 class PropertyClass(metaclass=PropertyType):

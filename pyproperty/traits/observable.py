@@ -39,7 +39,12 @@ class AsynchronousDelivery(DeliveryPolicy):
 
     def update(self, value):
         self._data_queue.append(value)
-        self.data_event.set()
+        with self._data_lock:
+            self._queue_empty_event.clear()
+            self.data_event.set()
+
+    def await_delivery(self, timeout: float | None = None):
+        return self._queue_empty_event.wait(timeout)
 
     def _deliver_queue(self):
         while not self._canceled:
@@ -52,9 +57,11 @@ class AsynchronousDelivery(DeliveryPolicy):
                     except Exception as e:
                         self._on_error(value, e)
             except IndexError:
-                self.data_event.clear()
-                if self._data_queue:
-                    self.data_event.set()
+                with self._data_lock:
+                    if self._data_queue:  # pragma: no cover
+                        continue
+                    self._queue_empty_event.set()
+                    self.data_event.clear()
 
     def __init__(
         self,
@@ -70,6 +77,7 @@ class AsynchronousDelivery(DeliveryPolicy):
         self._data_queue = deque()
         self._delivery_thread = Thread(target=self._deliver_queue, daemon=True)
         self._delivery_thread.start()
+        self._queue_empty_event = Event()
 
 
 class UpdatePolicy(ABC):
