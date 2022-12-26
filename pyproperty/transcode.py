@@ -10,12 +10,12 @@ __all__ = [
 ]
 
 import json
-from collections import ChainMap
+from collections.abc import Collection, Iterable
 from typing import Any, Union
-from collections.abc import Iterable, Collection
+
 from pyproperty.locator import Locator
 from pyproperty.type_registry import TypeRegistry
-from pyproperty.type_utils import get_fully_qualified_name, hierarchy
+from pyproperty.type_utils import get_fully_qualified_name
 
 primitives = (str, int, float, bool)
 Serializable = dict | list | Union[primitives]
@@ -79,10 +79,10 @@ class Encoder(_Transcoder, handler_for=primitives):
         obj_id = str(id(obj))
         obj_type = type(obj)
         if obj_id not in self.data:
-            self.data[obj_id] = [
-                f"{get_fully_qualified_name(obj_type)}",
-                self._encode(obj),
-            ]
+            encoded_data = [f"{get_fully_qualified_name(obj_type)}"]
+            # pack data in 2 stages to prevent infinite recursion when encoding self-referential objects.
+            self.data[obj_id] = encoded_data
+            encoded_data.append(self._encode(obj))
         return obj_id
 
     def _encode(self, obj):
@@ -186,12 +186,12 @@ class TypeEncoder(Encoder, handler_for=type):
     pass
 
 
-class CollectionEncoder(Encoder, handler_for=Collection):
+class CollectionEncoder(Encoder, handler_for=(tuple, set, list)):
     def _encode(self, obj: Collection):
         return [Encoder(item, self).obj_id for item in obj]
 
 
-class CollectionDecoder(Decoder, handler_for=Collection):
+class CollectionDecoder(Decoder, handler_for=(tuple, set, list)):
     def _decode(self, obj_type, obj_ids: Collection[str]):
         return obj_type(
             (
@@ -206,4 +206,14 @@ class DictEncoder(Encoder, handler_for=dict):
         return {
             Encoder(key, self).obj_id: Encoder(value, self).obj_id
             for key, value in obj.items()
+        }
+
+
+class DictDecoder(Decoder, handler_for=dict):
+    def _decode(self, obj_type: type, value: dict) -> Any:
+        return {
+            Decoder(self.encoded_data, key, self.locator, self)
+            .instance: Decoder(self.encoded_data, value, self.locator, self)
+            .instance
+            for key, value in value.items()
         }
