@@ -31,7 +31,12 @@ class Example(PropertyClass):
         return 1
 
     b = Property[float](default=MethodReference(default_gain))
-    c = Property[int](default=1)
+
+    @classmethod
+    def _optional_c_traits(cls):
+        pass
+
+    c = Property[int](default=1, traits=_optional_c_traits)
 
     def default_sum(self):
         return self.a + self.b + self.c
@@ -100,6 +105,7 @@ class PropertyTest(TestCase):
         sentinel = object()
         ex = Example()
         self.assertEqual(4, ex.d)
+        self.assertFalse(Example.c.traits)
         (ex_unit,) = Example.d.traits
         self.assertIsInstance(ex_unit, Unit)
         self.assertEqual(ex_unit.unit, "mm")
@@ -113,6 +119,10 @@ class PropertyTest(TestCase):
 
             def _validate_d(self, value):
                 assert value > 0
+
+            @classmethod
+            def _optional_c_traits(cls):
+                return Unit("N")
 
             @classmethod
             def _d_traits(cls):

@@ -1,3 +1,6 @@
+import os
+import tempfile
+from os.path import basename
 from unittest import TestCase
 
 from pyproperty import (
@@ -9,6 +12,8 @@ from pyproperty import (
     encode,
     FunctionReference,
 )
+from pyproperty.test.test_property import Example
+from pyproperty.transcode import from_file, from_string, to_file, to_string
 
 
 class TestClass(PropertyClass):
@@ -52,3 +57,17 @@ class TranscoderTest(TestCase):
         ((_i0c, [__i0c]),) = i1c.c.items()
         self.assertIs(i0c, _i0c)
         self.assertIs(_i0c, __i0c)
+
+    def test_to_from_file(self):
+        ex = Example()
+        with tempfile.TemporaryDirectory() as temp_path:
+            temp_file = os.path.join(temp_path, "encoded.json")
+            to_file(ex, temp_file)
+            copy = from_file(temp_file)
+            self.assertIsInstance(copy, Example)
+
+    def test_to_from_string(self):
+        ex = Example()
+        s = to_string(ex)
+        copy = from_string(s)
+        self.assertIsInstance(copy, Example)

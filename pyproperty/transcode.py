@@ -41,21 +41,6 @@ class _Transcoder:
     def __class_getitem__(cls, obj_type: type) -> type[_Transcoder]:
         return cls._registry[obj_type:]
 
-    @classmethod
-    def register(
-        cls, *types_to_handle: type, transcoder: type[_Transcoder] = None
-    ):
-        if transcoder is None:
-
-            def _wrapper(tcls: type[_Transcoder]):
-                tcls.register(*types_to_handle, transcoder=tcls)
-                return tcls
-
-            return _wrapper
-
-        for t in types_to_handle:
-            cls._registry[t] = transcoder
-
 
 class Encoder(_Transcoder, handler_for=primitives):
     def __new__(cls, obj, parent: Encoder | None):
@@ -168,7 +153,7 @@ def from_string(encoded_object: str) -> Any:
 
 def to_file(obj, path: str):
     with open(path, "w") as f:
-        json.dump(f, encode(obj))
+        json.dump(encode(obj), f)
 
 
 def from_file(path: str, locator=_locator):
