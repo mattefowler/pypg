@@ -1,7 +1,7 @@
 from pydoc import locate as _locate
 from typing import Protocol
 
-from pyproperty.type_utils import get_fully_qualified_name
+from pypg.type_utils import get_fully_qualified_name
 
 
 def _disallow(name):

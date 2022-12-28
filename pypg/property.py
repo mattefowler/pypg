@@ -18,7 +18,7 @@ from abc import ABC, abstractmethod
 from functools import cached_property
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 
-from pyproperty.type_utils import get_fully_qualified_name
+from pypg.type_utils import get_fully_qualified_name
 
 T = TypeVar("T")
 

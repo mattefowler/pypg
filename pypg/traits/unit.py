@@ -1,5 +1,5 @@
 __all__ = ["Unit"]
-from pyproperty.property import Trait
+from pypg.property import Trait
 
 
 class Unit(Trait):

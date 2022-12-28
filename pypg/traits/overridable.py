@@ -8,8 +8,8 @@ from abc import abstractmethod
 from collections import defaultdict
 from collections.abc import Callable
 
-from pyproperty import Property, PropertyClass, PropertyType, Trait
-from pyproperty.type_registry import TypeRegistry
+from pypg import Property, PropertyClass, PropertyType, Trait
+from pypg.type_registry import TypeRegistry
 
 OverrideScope = PropertyType | PropertyClass | Property
 

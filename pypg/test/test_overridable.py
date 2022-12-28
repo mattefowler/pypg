@@ -2,8 +2,8 @@ import time
 from threading import Event, Thread
 from unittest import TestCase
 
-from pyproperty import MethodReference, PreSet, Property, PropertyClass
-from pyproperty.traits import Validated
+from pypg import MethodReference, PreSet, Property, PropertyClass
+from pypg.traits import Validated
 
 
 class OverrideTester(PropertyClass):

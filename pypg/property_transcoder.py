@@ -1,7 +1,7 @@
 from typing import Any
 
-from pyproperty import PropertyClass
-from pyproperty.transcode import Decoder, Encoder
+from pypg import PropertyClass
+from pypg.transcode import Decoder, Encoder
 
 
 class PropertyClassEncoder(Encoder, handler_for=PropertyClass):

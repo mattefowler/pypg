@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from pyproperty import PostGet, PostSet, Property, PropertyClass
-from pyproperty.traits import (
+from pypg import PostGet, PostSet, Property, PropertyClass
+from pypg.traits import (
     Always,
     AsynchronousDelivery,
     Observable,
