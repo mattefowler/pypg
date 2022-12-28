@@ -1,11 +1,23 @@
 from __future__ import annotations
+
+__all__ = [
+    "DeliveryPolicy",
+    "AsynchronousDelivery",
+    "SynchronousDelivery",
+    "Subscription",
+    "Observable",
+    "OnChange",
+    "Always",
+    "watch",
+]
 from abc import ABC, abstractmethod
 from collections import deque
 from collections.abc import Callable
 from threading import Event, Lock, Thread
 from typing import Any
 
-from pyproperty import PostGet, PostSet, PreSet, Property, PropertyClass, Trait
+from pyproperty import Property, PropertyClass
+from pyproperty.property import DataModifierMixin
 
 
 class DeliveryPolicy(ABC):
@@ -101,21 +113,9 @@ class OnChange(UpdatePolicy):
         return result
 
 
-class Observable(Trait, ABC):
-    def __class_getitem__(cls, *modifiers: type[PostGet | PostSet | PreSet]):
-        return type(
-            cls.__name__,
-            (cls, *modifiers),
-            {cls.modifier_triggers.fget.__name__: modifiers},
-        )
-
+class Observable(DataModifierMixin, ABC):
     def __init_instance__(self, instance: PropertyClass):
         setattr(instance, self.watchlist_key(self.subject), [])
-
-    @property
-    @abstractmethod
-    def modifier_triggers(self):
-        """"""
 
     @classmethod
     def watchlist_key(cls, p: Property):

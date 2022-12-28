@@ -14,7 +14,7 @@ class TypeRegistry(dict[type, T]):
         )
         return find_closest_relative(t, *types_to_compare)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item) -> T:
         if isinstance(item, slice):
             try:
                 return self[self.find_closest_relative(item.start, item.stop)]

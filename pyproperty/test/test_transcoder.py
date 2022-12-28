@@ -1,16 +1,15 @@
 import os
 import tempfile
-from os.path import basename
 from unittest import TestCase
 
 from pyproperty import (
     DictEncoder,
     Encoder,
+    FunctionReference,
     Property,
     PropertyClass,
     decode,
     encode,
-    FunctionReference,
 )
 from pyproperty.test.test_property import Example
 from pyproperty.transcode import from_file, from_string, to_file, to_string
