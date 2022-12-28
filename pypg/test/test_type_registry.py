@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from pyproperty.type_registry import TypeRegistry
+from pypg.type_registry import TypeRegistry
 
 
 class Base:

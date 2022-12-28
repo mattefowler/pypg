@@ -4,7 +4,7 @@ from abc import ABC
 from collections.abc import Callable
 from typing import Any
 
-from pyproperty.property import DataModifierMixin
+from pypg.property import DataModifierMixin
 from . import Overridable
 
 

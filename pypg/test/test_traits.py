@@ -1,8 +1,8 @@
 from unittest import TestCase
 
-from pyproperty import MethodReference, PreSet
-from pyproperty.test.test_property import Example
-from pyproperty.traits import Unit, Validated
+from pypg import MethodReference, PreSet
+from pypg.test.test_property import Example
+from pypg.traits import Unit, Validated
 
 
 class TestTraits(TestCase):

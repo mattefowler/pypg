@@ -1,6 +1,6 @@
 from typing import TypeVar
 
-from pyproperty.type_utils import find_closest_relative
+from pypg.type_utils import find_closest_relative
 
 T = TypeVar("T")
 

@@ -13,9 +13,9 @@ import json
 from collections.abc import Collection, Iterable
 from typing import Any, Union
 
-from pyproperty.locator import Locator
-from pyproperty.type_registry import TypeRegistry
-from pyproperty.type_utils import get_fully_qualified_name
+from pypg.locator import Locator
+from pypg.type_registry import TypeRegistry
+from pypg.type_utils import get_fully_qualified_name
 
 primitives = (str, int, float, bool)
 Serializable = dict | list | Union[primitives]

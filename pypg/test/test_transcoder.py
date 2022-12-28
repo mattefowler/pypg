@@ -2,7 +2,7 @@ import os
 import tempfile
 from unittest import TestCase
 
-from pyproperty import (
+from pypg import (
     DictEncoder,
     Encoder,
     FunctionReference,
@@ -11,8 +11,8 @@ from pyproperty import (
     decode,
     encode,
 )
-from pyproperty.test.test_property import Example
-from pyproperty.transcode import from_file, from_string, to_file, to_string
+from pypg.test.test_property import Example
+from pypg.transcode import from_file, from_string, to_file, to_string
 
 
 class TestClass(PropertyClass):

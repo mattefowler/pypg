@@ -16,8 +16,8 @@ from collections.abc import Callable
 from threading import Event, Lock, Thread
 from typing import Any
 
-from pyproperty import Property, PropertyClass
-from pyproperty.property import DataModifierMixin
+from pypg import Property, PropertyClass
+from pypg.property import DataModifierMixin
 
 
 class DeliveryPolicy(ABC):
