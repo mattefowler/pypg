@@ -4,6 +4,11 @@ on:
 jobs:
   test:
     steps:
+    - uses: actions/checkout@v2
+      with:
+        fetch-depth: 0
+        ref: ${{ github.head_ref }}
+
     - name: test
       run: coverage run -m unittest discover tests;coverage lcov
     - name: export report
