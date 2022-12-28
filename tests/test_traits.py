@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from pypg import MethodReference, PreSet
-from pypg.test.test_property import Example
+from tests.test_property import Example
 from pypg.traits import Unit, Validated
 
 

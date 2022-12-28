@@ -2,22 +2,10 @@ from unittest import TestCase
 
 from pypg.property import (
     MethodReference,
-    PostGet,
-    PostSet,
-    PreSet,
     Property,
     PropertyClass,
 )
-from pypg.traits import (
-    Always,
-    AsynchronousDelivery,
-    Observable,
-    OnChange,
-    SynchronousDelivery,
-    Unit,
-    Validated,
-    watch,
-)
+from pypg.traits import Unit
 
 
 class Example(PropertyClass):
