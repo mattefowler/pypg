@@ -176,6 +176,20 @@ class PostSet(DataModifier, ABC):
     pass
 
 
+class DataModifierMixin(DataModifier, ABC):
+    def __class_getitem__(cls, *modifiers: type[PostGet | PostSet | PreSet]):
+        return type(
+            cls.__name__,
+            (cls, *modifiers),
+            {cls.modifier_triggers.fget.__name__: modifiers},
+        )
+
+    @property
+    @abstractmethod
+    def modifier_triggers(self):
+        """"""
+
+
 DEFAULT_TYPES = FunctionReference[Factory] | T | None
 
 

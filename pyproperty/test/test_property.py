@@ -1,11 +1,12 @@
-from threading import Event
 from unittest import TestCase
+
 from pyproperty.property import (
+    MethodReference,
     PostGet,
     PostSet,
+    PreSet,
     Property,
     PropertyClass,
-    MethodReference,
 )
 from pyproperty.traits import (
     Always,
@@ -14,7 +15,7 @@ from pyproperty.traits import (
     OnChange,
     SynchronousDelivery,
     Unit,
-    Validator,
+    Validated,
     watch,
 )
 
@@ -100,117 +101,3 @@ class PropertyTest(TestCase):
         self.assertEqual(Example.a.value_type, float)
         self.assertEqual(Example.b.value_type, float)
         self.assertEqual(Example.c.value_type, int)
-
-    def test_overrides(self):
-        sentinel = object()
-        ex = Example()
-        self.assertEqual(4, ex.d)
-        self.assertFalse(Example.c.traits)
-        (ex_unit,) = Example.d.traits
-        self.assertIsInstance(ex_unit, Unit)
-        self.assertEqual(ex_unit.unit, "mm")
-
-        class Child(Example):
-            def default_poly(self, offset):
-                return sentinel
-
-            def default_sum(self):
-                return sentinel
-
-            def _validate_d(self, value):
-                assert value > 0
-
-            @classmethod
-            def _optional_c_traits(cls):
-                return Unit("N")
-
-            @classmethod
-            def _d_traits(cls):
-                return Unit("in"), Validator(MethodReference(cls._validate_d))
-
-        c = Child()
-        self.assertIs(sentinel, c.a)
-        self.assertIs(sentinel, c.d)
-        (c_unit, validator) = Child.d.traits
-        self.assertEqual(c_unit.unit, "in")
-        with self.assertRaises(AssertionError):
-            c.d = -1
-        with self.assertRaises(AssertionError):
-            validator.apply(c, -1)
-
-    def test_observable(self):
-        class WatchIt(PropertyClass):
-            p = Property[int](traits=Observable[PostSet]())
-            g = Property[int](default=0, traits=Observable[PostGet]())
-
-        w0 = WatchIt()
-        w0_data = []
-        w1 = WatchIt()
-        w1_data = []
-        w0_delivery = AsynchronousDelivery(w0_data.append, OnChange())
-        w1_delivery = AsynchronousDelivery(w1_data.append, OnChange())
-        with (
-            watch(w0, "p", w0_delivery) as w_subscription,
-            watch(w1, "p", w1_delivery) as w2_subscription,
-        ):
-            w0.p = 0
-            self.assertTrue(w0_delivery.await_delivery(2))
-            self.assertEqual([0], w0_data)
-
-            self.assertFalse(w1_delivery.await_delivery(0))
-            self.assertFalse(w1_data)
-
-            w1.p = 1
-            self.assertTrue(w1_delivery.await_delivery(2))
-            self.assertEqual([1], w1_data)
-
-            self.assertTrue(w0_delivery.await_delivery(0))
-            self.assertEqual([0], w0_data)
-
-        w0_data.clear()
-        w1_data.clear()
-
-        with (
-            watch(
-                w0, "p", SynchronousDelivery(w0_data.append, OnChange())
-            ) as w_subscription,
-            watch(
-                w1, "p", SynchronousDelivery(w1_data.append, OnChange())
-            ) as w2_subscription,
-        ):
-            w0.p = 0
-            self.assertEqual([0], w0_data)
-            self.assertFalse(w1_data)
-
-            w1.p = 1
-            self.assertEqual([1], w1_data)
-            self.assertEqual([0], w0_data)
-        # redundant cancellation does no harm
-        w_subscription.cancel()
-
-        w0_data.clear()
-        with watch(
-            w0, WatchIt.g, SynchronousDelivery(w0_data.append, Always())
-        ):
-            for i in range(1, 5):
-                self.assertEqual([w0.g] * i, w0_data)
-
-        ex = RuntimeError()
-
-        def exception_in_callback(*_):
-            raise ex
-
-        caught = []
-
-        def handle_exception(value, ex):
-            caught.append((value, ex))
-
-        w0_delivery = AsynchronousDelivery(
-            exception_in_callback, Always(), on_error=handle_exception
-        )
-
-        with watch(w0, WatchIt.p, w0_delivery):
-            value = 1234
-            w0.p = 1234
-            self.assertTrue(w0_delivery.await_delivery(2))
-            self.assertEqual([(value, ex)], caught)
