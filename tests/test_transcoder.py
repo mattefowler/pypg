@@ -11,7 +11,7 @@ from pypg import (
     decode,
     encode,
 )
-from pypg.test.test_property import Example
+from tests.test_property import Example
 from pypg.transcode import from_file, from_string, to_file, to_string
 
 

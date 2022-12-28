@@ -1,4 +1,3 @@
-import time
 from threading import Event, Thread
 from unittest import TestCase
 

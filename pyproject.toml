@@ -1,0 +1,22 @@
+[build-system]
+requires=["setuptools", "wheel"]
+
+[project]
+name="property-graph"
+description="python library for working with objects as graphs of property data"
+readme="README.md"
+authors=[{name="Matt Fowler", email="mattefowler@gmail.com"}]
+keywords=["graph", "serialization", "metadata", "property", "schema"]
+classifiers=[
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "License :: Apache-2.0"
+]
+license="Apache-2.0"
+requires-python=">=3.10"
+packages=[
+    {include="pypg"},
+    {exclude="tests"}
+]
