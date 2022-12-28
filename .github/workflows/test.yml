@@ -1,0 +1,10 @@
+jobs:
+  test:
+    steps:
+    - name: test
+      run: coverage run -m unittest discover tests;coverage lcov
+    - name: export report
+    - name: Code Coverage Report
+      uses: romeovs/lcov-reporter-action@v0.2.11
+      with:
+          lcov-file: coverage.lcov
