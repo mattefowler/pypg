@@ -2,10 +2,10 @@ from unittest import TestCase
 
 from pypg.property import (
     MethodReference,
-    Property,
+    PostSet, Property,
     PropertyClass,
 )
-from pypg.traits import Unit
+from pypg.traits import Observable, Unit
 
 
 class Example(PropertyClass):
@@ -32,7 +32,7 @@ class Example(PropertyClass):
 
     @classmethod
     def _d_traits(cls):
-        return Unit("mm")
+        return Unit("mm"), Observable[PostSet]()
 
     d = Property[float](
         default=1, getter=MethodReference(default_sum), traits=_d_traits

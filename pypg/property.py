@@ -206,10 +206,12 @@ class Setter(Protocol):
 
 class _PropertyMeta(type):
     def __instancecheck__(cls, instance):
-        if isinstance(instance, Property._Proxy):
+        if isinstance(instance, _Proxy):
             instance = instance._property
         return super().__instancecheck__(instance)
 
+    def __subclasscheck__(cls, subclass):
+        return issubclass(_Proxy, subclass) or super().__subclasscheck__(subclass)
 
 TraitProvider = Trait | classmethod
 
@@ -223,7 +225,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         traits: TraitProvider | Iterable[TraitProvider] = (),
     ):
         super().__init__()
-        self._subclass_proxies: dict[PropertyType, Property._Proxy] = {}
+        self._subclass_proxies: dict[PropertyType, _Proxy] = {}
         self._default = default
         self.name = None
         self.__declaring_type = None
@@ -242,7 +244,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         self.__declaring_type = cls
 
     def __bind_subclass__(self, cls):
-        proxy = self._Proxy(self, cls)
+        proxy = _Proxy(self, cls)
         for t in proxy.traits:
             t.__bind__(self)
         self._subclass_proxies[cls] = proxy
@@ -299,66 +301,70 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def __str__(self):
         return f"{get_fully_qualified_name(self.__declaring_type)}.{self.name}"
 
-    class _Proxy:
-        def __init__(self, p: Property, owner: type[PropertyClass]):
-            self._property = p
-            self.__owner = owner
-            self.__traits = tuple(
-                itertools.chain.from_iterable(
-                    map(self.__get_traits, self._property.traits)
-                )
-            )
-            self.__post_get = tuple(
-                t for t in self.__traits if isinstance(t, PostGet)
-            )
-            self.__pre_set = tuple(
-                t for t in self.__traits if isinstance(t, PreSet)
-            )
-            self.__post_set = tuple(
-                t for t in self.__traits if isinstance(t, PostSet)
-            )
 
-        def __getattr__(self, item):
-            return getattr(self._property, item)
+class _Proxy:
+    __qualname__ = Property.__qualname__
+    __name__ = Property.__name__
 
-        def __get_traits(
-            self, trait_provider: Trait | classmethod
-        ) -> Iterable[Trait]:
-            if isinstance(trait_provider, Trait):
-                yield trait_provider
+    def __init__(self, p: Property, owner: type[PropertyClass]):
+        self._property = p
+        self.__owner = owner
+        self.__traits = tuple(
+            itertools.chain.from_iterable(
+                map(self.__get_traits, self._property.traits)
+            )
+        )
+        self.__post_get = tuple(
+            t for t in self.__traits if isinstance(t, PostGet)
+        )
+        self.__pre_set = tuple(
+            t for t in self.__traits if isinstance(t, PreSet)
+        )
+        self.__post_set = tuple(
+            t for t in self.__traits if isinstance(t, PostSet)
+        )
+
+    def __getattr__(self, item):
+        return getattr(self._property, item)
+
+    def __get_traits(
+        self, trait_provider: Trait | classmethod
+    ) -> Iterable[Trait]:
+        if isinstance(trait_provider, Trait):
+            yield trait_provider
+        else:
+            result = getattr(self.__owner, trait_provider.__name__)()
+            if result is None:
+                return
+            if isinstance(result, Trait):
+                yield result
             else:
-                result = getattr(self.__owner, trait_provider.__name__)()
-                if result is None:
-                    return
-                if isinstance(result, Trait):
-                    yield result
-                else:
-                    yield from result
+                yield from result
 
-        def get(self, instance):
-            result = self._property._getter(instance)
-            for t in self.__post_get:
-                result = t.apply(instance, result)
-            return result
+    def get(self, instance):
+        result = self._property._getter(instance)
+        for t in self.__post_get:
+            result = t.apply(instance, result)
+        return result
 
-        def set(self, instance, value):
-            for t in self.__pre_set:
-                value = t.apply(instance, value)
-            self._property._setter(instance, value)
-            for t in self.__post_set:
-                t.apply(instance, value)
+    def set(self, instance, value):
+        for t in self.__pre_set:
+            value = t.apply(instance, value)
+        self._property._setter(instance, value)
+        for t in self.__post_set:
+            t.apply(instance, value)
 
-        def __init_instance__(self, instance, value):
-            for t in self.traits:
-                t.__init_instance__(instance)
-            self.set(instance, value)
+    def __init_instance__(self, instance, value):
+        for t in self.traits:
+            t.__init_instance__(instance)
+        self.set(instance, value)
 
-        @property
-        def traits(self):
-            return self.__traits
+    @property
+    def traits(self):
+        return self.__traits
 
-        def __str__(self):
-            return f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
+    def __str__(self):
+        return f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
 
 
 class PropertyClass(metaclass=PropertyType):

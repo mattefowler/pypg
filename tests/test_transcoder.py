@@ -38,11 +38,12 @@ class TranscoderTest(TestCase):
         self.assertEqual(expected, encoded)
         copy = decode(encoded)
         self.assertEqual(objs, copy)
-        d = {1234: objs, 4321: objs, "asdf": 1234}
+        d = {1234: objs, 4321: objs, "asdf": 1234, 0: None}
         encoded = encode(d)
         copy = decode(encoded)
         self.assertIs(d[1234], d[4321])
         self.assertEqual(d["asdf"], 1234)
+        self.assertIsNone(copy[0])
 
     def test_propertyclass_transcoding(self):
 
@@ -70,3 +71,12 @@ class TranscoderTest(TestCase):
         s = to_string(ex)
         copy = from_string(s)
         self.assertIsInstance(copy, Example)
+
+    def test_invalid_type_decoding(self):
+        class LocalType(Example):
+            pass
+
+        lt = LocalType()
+        e = encode(lt)
+        with self.assertRaises(TypeError):
+            decode(e)
