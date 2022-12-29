@@ -11,9 +11,9 @@ class TestTraits(TestCase):
         ex = Example()
         self.assertEqual(4, ex.d)
         self.assertFalse(Example.c.traits)
-        (ex_unit,) = Example.d.traits
+        (ex_unit,*_) = Example.d.traits
         self.assertIsInstance(ex_unit, Unit)
-        self.assertEqual(ex_unit.unit, "mm")
+        self.assertEqual(ex_unit.value, "mm")
 
         class Child(Example):
             def default_poly(self, offset):
@@ -39,7 +39,7 @@ class TestTraits(TestCase):
         self.assertIs(sentinel, c.a)
         self.assertIs(sentinel, c.d)
         (c_unit, validator) = Child.d.traits
-        self.assertEqual(c_unit.unit, "in")
+        self.assertEqual(c_unit.value, "in")
         with self.assertRaises(AssertionError):
             c.d = -1
         with self.assertRaises(AssertionError):

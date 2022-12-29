@@ -11,13 +11,14 @@ __all__ = [
 
 import json
 from collections.abc import Collection, Iterable
+from types import NoneType
 from typing import Any, Union
 
 from pypg.locator import Locator
 from pypg.type_registry import TypeRegistry
 from pypg.type_utils import get_fully_qualified_name
 
-primitives = (str, int, float, bool)
+primitives = (str, int, float, bool, NoneType)
 Serializable = dict | list | Union[primitives]
 
 _locator = Locator()
@@ -28,9 +29,7 @@ class _Transcoder:
 
     _registry: TypeRegistry[_Transcoder] = None
 
-    def __init_subclass__(
-        cls, handler_for: type | Iterable[type] = (), **kwargs
-    ):
+    def __init_subclass__(cls, handler_for: type | Iterable[type] = (), **kwargs):
         if isinstance(handler_for, type):
             handler_for = (handler_for,)
         if cls._registry is None:
@@ -105,9 +104,7 @@ class Decoder(_Transcoder, handler_for=primitives):
         else:
             self.decoded_objects = parent.decoded_objects
         self.encoded_data = encoded_data
-        self.obj_id = (
-            obj_id if obj_id is not None else encoded_data[self.root_key]
-        )
+        self.obj_id = obj_id if obj_id is not None else encoded_data[self.root_key]
         self.locator = locator
         self.instance = self.decode()
 
@@ -132,11 +129,21 @@ class Decoder(_Transcoder, handler_for=primitives):
         locator: Locator,
     ) -> tuple[type, Any]:
         fully_qualified_name, value = encoded_data[obj_id]
-        t = locator(fully_qualified_name)
+        try:
+            t = locator(fully_qualified_name)
+        except TypeError:
+            if fully_qualified_name != NoneType.__name__:
+                raise
+            t = NoneType
         return t, value
 
     def _decode(self, obj_type: type, value: Any) -> Any:
         return obj_type(value)
+
+
+class NoneTypeDecoder(Decoder, handler_for=NoneType):
+    def _decode(self, obj_type: type, value: Any) -> Any:
+        return None
 
 
 def encode(obj) -> Any:
@@ -162,13 +169,17 @@ def from_file(path: str, locator=_locator):
 
 
 def decode(obj_data, locator=_locator):
-    return Decoder(
-        obj_data, locator=locator, parent=None, obj_id=None
-    ).instance
+    return Decoder(obj_data, locator=locator, parent=None, obj_id=None).instance
 
 
 class TypeEncoder(Encoder, handler_for=type):
-    pass
+    def _encode(self, obj_type):
+        return get_fully_qualified_name(obj_type)
+
+
+class TypeDecoder(Decoder, handler_for=type):
+    def _decode(self, _, fully_qualified_name: str):
+        return self.locator(fully_qualified_name)
 
 
 class CollectionEncoder(Encoder, handler_for=(tuple, set, list)):
