@@ -211,7 +211,10 @@ class _PropertyMeta(type):
         return super().__instancecheck__(instance)
 
     def __subclasscheck__(cls, subclass):
-        return issubclass(_Proxy, subclass) or super().__subclasscheck__(subclass)
+        return issubclass(_Proxy, subclass) or super().__subclasscheck__(
+            subclass
+        )
+
 
 TraitProvider = Trait | classmethod
 
@@ -364,7 +367,9 @@ class _Proxy:
         return self.__traits
 
     def __str__(self):
-        return f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
+        return (
+            f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
+        )
 
 
 class PropertyClass(metaclass=PropertyType):
