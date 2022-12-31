@@ -2,7 +2,8 @@ from unittest import TestCase
 
 from pypg.property import (
     MethodReference,
-    PostSet, Property,
+    PostSet,
+    Property,
     PropertyClass,
 )
 from pypg.traits import Observable, Unit

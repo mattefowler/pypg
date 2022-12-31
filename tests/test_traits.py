@@ -11,7 +11,7 @@ class TestTraits(TestCase):
         ex = Example()
         self.assertEqual(4, ex.d)
         self.assertFalse(Example.c.traits)
-        (ex_unit,*_) = Example.d.traits
+        (ex_unit, *_) = Example.d.traits
         self.assertIsInstance(ex_unit, Unit)
         self.assertEqual(ex_unit.value, "mm")
 

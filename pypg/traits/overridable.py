@@ -134,7 +134,7 @@ class Overridable(Trait):
 
     def override(self, instance: PropertyClass = None):
         scope = self.subject if instance is None else instance
-        override_type = self._override_type_registry[type(scope) :]
+        override_type = self._override_type_registry[type(scope):]
         return override_type(self, scope)
 
     @classmethod

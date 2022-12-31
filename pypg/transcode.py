@@ -29,7 +29,9 @@ class _Transcoder:
 
     _registry: TypeRegistry[_Transcoder] = None
 
-    def __init_subclass__(cls, handler_for: type | Iterable[type] = (), **kwargs):
+    def __init_subclass__(
+        cls, handler_for: type | Iterable[type] = (), **kwargs
+    ):
         if isinstance(handler_for, type):
             handler_for = (handler_for,)
         if cls._registry is None:
@@ -104,7 +106,9 @@ class Decoder(_Transcoder, handler_for=primitives):
         else:
             self.decoded_objects = parent.decoded_objects
         self.encoded_data = encoded_data
-        self.obj_id = obj_id if obj_id is not None else encoded_data[self.root_key]
+        self.obj_id = (
+            obj_id if obj_id is not None else encoded_data[self.root_key]
+        )
         self.locator = locator
         self.instance = self.decode()
 
@@ -169,7 +173,9 @@ def from_file(path: str, locator=_locator):
 
 
 def decode(obj_data, locator=_locator):
-    return Decoder(obj_data, locator=locator, parent=None, obj_id=None).instance
+    return Decoder(
+        obj_data, locator=locator, parent=None, obj_id=None
+    ).instance
 
 
 class TypeEncoder(Encoder, handler_for=type):
