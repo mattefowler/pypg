@@ -57,36 +57,51 @@ class TestOverridable(TestCase):
         self.assertEqual(-2, ot.p)
         self.assertEqual(-1, ot.q)
 
+    def test_multiple_override_scopes(self):
+        with Validated.override_all(OverrideTester):
+            ot = OverrideTester(p=-1, q=-1)
+            with OverrideTester.p_validation.override(ot):
+                ot.p = "a"
+                with Validated.override_all(OverrideTester):
+                    ot.q = "q"
+                    with OverrideTester.p_validation.override(ot):
+                        ot.p = "a"
+            ot.p = "b"
+        with self.assertRaises(ValueError):
+            ot.p = -1
+        ot.p = 1
+
     def test_thread_scope(self):
         bg_coordinator = Event()
         main_coordinator = Event()
         ot = OverrideTester()
 
-        def _():
+        def bgworker():
             bg_coordinator.wait()
             bg_coordinator.clear()
             try:
+                # main thread has override, this thread does not
                 with self.assertRaises(ValueError):
                     ot.p = -1
+                with OverrideTester.p_validation.override(ot):
+                    # both threads have overrides
+                    self.assertEqual(-2, ot.p)
+                    main_coordinator.set()
+                    ot.p = -1
+                    bg_coordinator.wait()
+                    bg_coordinator.clear()
             finally:
                 main_coordinator.set()
-            with OverrideTester.p_validation.override(ot):
-                self.assertEqual(-2, ot.p)
-                main_coordinator.set()
-                ot.p = -1
-                main_coordinator.set()
-                bg_coordinator.wait()
-                bg_coordinator.clear()
 
-        separate_thread = Thread(target=_)
+        separate_thread = Thread(target=bgworker)
         separate_thread.start()
         with OverrideTester.p_validation.override(ot):
-            bg_coordinator.set()
+            # this thread has overrides, background does not
             ot.p = -2
+            bg_coordinator.set()
             main_coordinator.wait()
             main_coordinator.clear()
-        main_coordinator.wait()
-        main_coordinator.clear()
+        # bg thread has override, this does not
         with self.assertRaises(ValueError):
             ot.p = -1
         bg_coordinator.set()
