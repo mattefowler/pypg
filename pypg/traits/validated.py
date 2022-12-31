@@ -8,9 +8,9 @@ from pypg.property import DataModifierMixin
 from . import Overridable
 
 
-class Validated(Overridable, DataModifierMixin, ABC):
+class Validated(Overridable, DataModifierMixin, ABC, override_target="apply"):
     def __init__(self, validator: Callable):
-        super().__init__(self.apply)
+        super().__init__()
         self.validator = validator
 
     def apply(self, instance, value) -> Any:
