@@ -227,6 +227,28 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         setter: Setter[T] = None,
         traits: TraitProvider | Iterable[TraitProvider] = (),
     ):
+        """
+        Construct a new Property attribute of a class. A Property will only
+        function as intended in classes deriving from PropertyClass or that use
+        the PropertyType metaclass.
+        Args:
+            default: used when a value for this Property is not provided at
+                construction time. Default may be a literal or callable object
+                accepting the instance under construction that returns the
+                composing instance's value for this Property. Default factories
+                may be a classmethod or an instance method, and any method
+                overrides will be used regardless of where in the type
+                hierarchy the Property is declared.
+            getter: a callable object used to handle the get-semantics for the
+                Property.
+            setter: a callable object used to handle the set-semantics for the
+                Property.
+            traits: a collection of Trait instances, or classmethods returning
+                them, that apply to this Property. Traits are collected and
+                applied in a context-specific manner such that the traits of a
+                Property provided by a classmethod may be overridden by a
+                subclass of the type originally declaring the Property.
+        """
         super().__init__()
         self._subclass_proxies: dict[PropertyType, _Proxy] = {}
         self._default = default
