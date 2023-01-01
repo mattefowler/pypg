@@ -15,7 +15,7 @@ __all__ = [
 
 import itertools
 from abc import ABC, abstractmethod
-from functools import cached_property
+from functools import cached_property, wraps
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 
 from pypg.type_utils import get_fully_qualified_name
@@ -29,6 +29,7 @@ class PropertyType(type):
     generated that accepts keyword-arguments matching the names of the
     Properties declared by the type.
     """
+
     def __init__(cls, name: str, bases: tuple[type], attrs: dict[str, Any]):
         super().__init__(name, bases, attrs)
         properties = []
@@ -153,14 +154,30 @@ class MethodReference(FunctionReference[T]):
 
 
 class Trait:
-    def __init__(self, subject: Property = None):
-        self.subject = subject
+    """
+    A Trait is a decorator-like class that extends Property metadata and
+    behaviors.
+    """
+
+    def __init__(self):
+        """
+        Creates a new Trait instance.
+        """
+        self.subject = None
 
     def __bind__(self, subject: Property):
+        """
+        Called during type-construction to associate a Trait with a Property.
+        """
         self.subject = subject
 
     def __init_instance__(self, instance: PropertyClass):
-        pass
+        """
+        Allows a Trait to participate in construction of each instance of the
+        class that it is a part of.
+        Args:
+            instance: the instance under construction.
+        """
 
 
 class DataModifier(Trait, ABC):
@@ -168,6 +185,7 @@ class DataModifier(Trait, ABC):
     A Datamodifier participates in data-access. It may alter the value being
     stored or returned, or trigger side-effects.
     """
+
     @abstractmethod
     def apply(self, instance: PropertyClass, value) -> Any:
         """
@@ -259,6 +277,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     Property is a descriptor class used for instance-data storage as well as
     declaring metadata and behaviors triggered by data-access.
     """
+
     def __init__(
         self,
         default: DEFAULT_TYPES = None,
@@ -314,6 +333,13 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         self._subclass_proxies[cls] = proxy
 
     def __init_instance__(self, instance: PropertyClass, value):
+        """
+        Allows a Property and its Traits to participate in instance
+        construction.
+        Args:
+            instance: the instance being constructed.
+            value: the value of this Property to be assigned to instance.
+        """
         proxy = self._subclass_proxies[type(instance)]
         proxy.__init_instance__(instance, value)
 
@@ -414,6 +440,7 @@ class _Proxy:
     _Proxy wraps a Property to provide subclass-specific Traits, allowing
     derived types to modify the behaviors and metadata of base-class Properties
     """
+
     __qualname__ = Property.__qualname__
     __name__ = Property.__name__
 
@@ -452,12 +479,14 @@ class _Proxy:
             else:
                 yield from result
 
+    @wraps(Property.get)
     def get(self, instance):
         result = self._property._getter(instance)
         for t in self.__post_get:
             result = t.apply(instance, result)
         return result
 
+    @wraps(Property.set)
     def set(self, instance, value):
         for t in self.__pre_set:
             value = t.apply(instance, value)
@@ -465,12 +494,14 @@ class _Proxy:
         for t in self.__post_set:
             t.apply(instance, value)
 
+    @wraps(Property.__init_instance__)
     def __init_instance__(self, instance, value):
         for t in self.traits:
             t.__init_instance__(instance)
         self.set(instance, value)
 
     @property
+    @wraps(Property.traits.fget)
     def traits(self):
         return self.__traits
 
@@ -486,5 +517,6 @@ class PropertyClass(metaclass=PropertyType):
     PropertyTypes have an __init__ generated that accepts keyword-arguments
     matching the names of the Properties declared by the type.
     """
+
     def __init__(self, **config):
         super().__init__(**config)
