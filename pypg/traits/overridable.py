@@ -23,9 +23,7 @@ class Override:
         lambda: (threading.RLock(), 0)
     )
 
-    def __init__(
-        self, subject: Overridable | type[Overridable], scope: OverrideScope
-    ):
+    def __init__(self, subject: Overridable | type[Overridable], scope: OverrideScope):
         self.subject = subject
         self._scope = scope
 
@@ -92,11 +90,7 @@ class _TypeOverride(Override):
 
         self._property_overrides = [
             *itertools.chain.from_iterable(
-                (
-                    override_factory(t, p)
-                    for t in p.traits
-                    if isinstance(t, trait_type)
-                )
+                (override_factory(t, p) for t in p.traits if isinstance(t, trait_type))
                 for p in target_type.properties
             )
         ]
@@ -117,8 +111,7 @@ class _InstanceOverride(Override):
     def _override(self, instance, *args, **kwargs):
         return (
             self.subject._override
-            if instance is self._scope
-            and self._thread_id == _current_thread_id()
+            if instance is self._scope and self._thread_id == _current_thread_id()
             else self.subject._override_target
         )(instance, *args, **kwargs)
 
@@ -138,9 +131,7 @@ class Overridable(Trait):
         return override_type(self, scope)
 
     @classmethod
-    def override_all(
-        cls, scope: type[PropertyClass] | PropertyClass
-    ) -> Override:
+    def override_all(cls, scope: type[PropertyClass] | PropertyClass) -> Override:
         return _TypeOverride(cls, scope)
 
     _override_type_registry = TypeRegistry[type[Override]](
