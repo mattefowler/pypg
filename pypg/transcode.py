@@ -21,7 +21,7 @@ from pypg.type_utils import get_fully_qualified_name
 primitives = (str, int, float, bool, NoneType)
 Serializable = dict | list | Union[primitives]
 
-_locator = Locator()
+default_locator = Locator()
 
 
 class _Transcoder:
@@ -44,7 +44,28 @@ class _Transcoder:
 
 
 class Encoder(_Transcoder, handler_for=primitives):
+    """
+    Encoders transform python objects into JSON-compliant data-structures for
+    storage or transmission. All constituent object data is stored in a flat
+    dict keyed by each object's id. The values of the data-dict are lists of
+    two elements: the first node contains the fully-qualified type name of the
+    object's type, and the second contains a serializable representation of its
+    members. The one exception to this pattern is the 'root' node, which
+    contains only the address of the object initially passed to the Encoder.
+    Subclasses of Encoder transform data for specific types specified by the
+    handler_for class-keyword.
+    """
+
     def __new__(cls, obj, parent: Encoder | None):
+        """
+        Create a new encoder for the object. If a more-specific encoder-type
+        for the object's type exists than the one specific, construct it
+        instead.
+        Args:
+            obj: the object to be encoded.
+            parent: the Encoder constructing this one, or None if obj is the
+            first object to be encoded.
+        """
         encoder_type = cls[type(obj)]
         if encoder_type is cls:
             return super().__new__(cls)
@@ -52,14 +73,31 @@ class Encoder(_Transcoder, handler_for=primitives):
             return encoder_type(obj, parent)
 
     def __init__(self, obj, parent: Encoder | None):
+        """
+        Initialize a new encoder for the object.
+        Args:
+            obj: the object to be encoded.
+            parent: the Encoder constructing this one, or None if obj is the
+            first object to be encoded.
+        """
         self.parent = parent
         if parent is None:
             self.data: dict[str, str | list[str, Any]] = {}
         else:
             self.data = parent.data
-        self.obj_id = self._pack(obj)
+        self._obj_id = self._pack(obj)
         if parent is None:
             self.data[self.root_key] = self.obj_id
+
+    @property
+    def obj_id(self) -> str:
+        """
+        The unique identifier for the object being encoded; this should be a
+        string of the id of the object.
+        Returns:
+            the id of the object passed to this Encoder.
+        """
+        return self._obj_id
 
     def _pack(self, obj) -> str:
         obj_id = str(id(obj))
@@ -74,8 +112,31 @@ class Encoder(_Transcoder, handler_for=primitives):
     def _encode(self, obj):
         return obj
 
+    @classmethod
+    def unpack(
+        cls, data, obj_id=_Transcoder.root_key, locator=default_locator
+    ):
+        """Transform encoded data into a more readable format, expanding
+        objects into container elements instead of referencing by id, and
+        duplicating any shared references."""
+        if obj_id == _Transcoder.root_key:
+            obj_id = data[obj_id]
+        obj_type_fqn, obj_data = data[obj_id]
+        obj_type = locator(obj_type_fqn)
+        e_type = cls[obj_type]
+        return [obj_type_fqn, e_type._unpack(data, obj_data, locator)]
+
+    @classmethod
+    def _unpack(cls, data, obj_data, locator=default_locator):
+        return obj_data
+
 
 class Decoder(_Transcoder, handler_for=primitives):
+    """
+    Decoders transform encoded data into instances equivalent to the originally
+    encoded object.
+    """
+
     def __new__(
         cls,
         encoded_data: dict,
@@ -83,6 +144,16 @@ class Decoder(_Transcoder, handler_for=primitives):
         locator: Locator,
         parent: Decoder | None,
     ):
+        """
+        Create a new Decoder. The most appropriate Decoder for the object
+        corresponding to obj_id will be resolve and constructed for non-
+        primitive data.
+        Args:
+            encoded_data:
+            obj_id:
+            locator:
+            parent:
+        """
         if obj_id is None:
             obj_id = encoded_data[cls.root_key]
         attr_type, attr_data = cls._unpack(encoded_data, obj_id, locator)
@@ -151,14 +222,41 @@ class NoneTypeDecoder(Decoder, handler_for=NoneType):
 
 
 def encode(obj) -> Any:
+    """
+    A convenience function to simplify the syntax of using an Encoder to
+    transform an object's data into a JSON-serializable format.
+    Args:
+        obj: the object to be serialized.
+
+    Returns:
+        transformed-data of obj
+    """
     return Encoder(obj, None).data
 
 
 def to_string(obj) -> str:
+    """
+    A convenience function to simplify using an Encoder to transform an
+    object's data into a JSON-parseable string.
+    Args:
+        obj: the object to be stringified.
+
+    Returns:
+        a JSON-parseable string of the object's data.
+    """
     return json.dumps(encode(obj))
 
 
 def from_string(encoded_object: str) -> Any:
+    """
+    A convenience function to simplify using an Decoder to transform a string
+    of encoded object data into object instances.
+    Args:
+        obj: the object to be stringified.
+
+    Returns:
+        a JSON-parseable string of the object's data.
+    """
     return decode(json.loads(encoded_object))
 
 
@@ -167,15 +265,19 @@ def to_file(obj, path: str):
         json.dump(encode(obj), f)
 
 
-def from_file(path: str, locator=_locator):
+def from_file(path: str, locator=default_locator):
     with open(path) as f:
         return decode(json.load(f), locator)
 
 
-def decode(obj_data, locator=_locator):
+def decode(obj_data, locator=default_locator):
     return Decoder(
         obj_data, locator=locator, parent=None, obj_id=None
     ).instance
+
+
+def unpack(obj_data, obj_id=Encoder.root_key, locator=default_locator):
+    return Encoder.unpack(obj_data, obj_id, locator)
 
 
 class TypeEncoder(Encoder, handler_for=type):
@@ -191,6 +293,10 @@ class TypeDecoder(Decoder, handler_for=type):
 class CollectionEncoder(Encoder, handler_for=(tuple, set, list)):
     def _encode(self, obj: Collection):
         return [Encoder(item, self).obj_id for item in obj]
+
+    @classmethod
+    def _unpack(cls, data, obj_data: list[str], locator=default_locator):
+        return [Encoder.unpack(data, item, locator) for item in obj_data]
 
 
 class CollectionDecoder(Decoder, handler_for=(tuple, set, list)):
@@ -209,6 +315,21 @@ class DictEncoder(Encoder, handler_for=dict):
             Encoder(key, self).obj_id: Encoder(value, self).obj_id
             for key, value in obj.items()
         }
+
+    @classmethod
+    def _unpack(
+        cls,
+        data: dict[str, Any],
+        obj_data: dict[str, str],
+        locator=default_locator,
+    ):
+        return [
+            (
+                Encoder.unpack(data, key, locator=locator),
+                Encoder.unpack(data, value, locator=locator),
+            )
+            for key, value in obj_data.items()
+        ]
 
 
 class DictDecoder(Decoder, handler_for=dict):

@@ -54,9 +54,7 @@ class PropertyType(type):
         cls_init = cls.__init__
 
         def initializer(instance: PropertyClass, *args, **property_values):
-            with _InitializationContext(
-                instance, **property_values
-            ) as init_ctx:
+            with _InitializationContext(instance, **property_values) as init_ctx:
                 init_ctx.initialize()
                 cls_init(instance, *args, **init_ctx.config)
 
@@ -77,9 +75,7 @@ class _InitMeta(type):
 
 
 class _InitializationContext(metaclass=_InitMeta):
-    def __init__(
-        self, instance: PropertyClass, **property_values: dict[str, Any]
-    ):
+    def __init__(self, instance: PropertyClass, **property_values: dict[str, Any]):
         self._instance = instance
         self.config = property_values
         self._uninitialized = [*type(instance).properties]
@@ -269,6 +265,7 @@ class _PropertyMeta(type):
         )
 
 
+
 TraitProvider = Trait | classmethod
 
 
@@ -448,26 +445,16 @@ class _Proxy:
         self._property = p
         self.__owner = owner
         self.__traits = tuple(
-            itertools.chain.from_iterable(
-                map(self.__get_traits, self._property.traits)
-            )
+            itertools.chain.from_iterable(map(self.__get_traits, self._property.traits))
         )
-        self.__post_get = tuple(
-            t for t in self.__traits if isinstance(t, PostGet)
-        )
-        self.__pre_set = tuple(
-            t for t in self.__traits if isinstance(t, PreSet)
-        )
-        self.__post_set = tuple(
-            t for t in self.__traits if isinstance(t, PostSet)
-        )
+        self.__post_get = tuple(t for t in self.__traits if isinstance(t, PostGet))
+        self.__pre_set = tuple(t for t in self.__traits if isinstance(t, PreSet))
+        self.__post_set = tuple(t for t in self.__traits if isinstance(t, PostSet))
 
     def __getattr__(self, item):
         return getattr(self._property, item)
 
-    def __get_traits(
-        self, trait_provider: Trait | classmethod
-    ) -> Iterable[Trait]:
+    def __get_traits(self, trait_provider: Trait | classmethod) -> Iterable[Trait]:
         if isinstance(trait_provider, Trait):
             yield trait_provider
         else:

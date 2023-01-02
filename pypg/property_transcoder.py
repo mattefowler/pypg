@@ -2,7 +2,7 @@ from typing import Any
 
 from pypg import Property, PropertyClass, PropertyType, Trait
 from pypg.traits.metadata import MetadataTrait
-from pypg.transcode import Decoder, Encoder
+from pypg.transcode import Decoder, Encoder, default_locator
 
 
 class PropertyClassEncoder(Encoder, handler_for=PropertyClass):
@@ -10,6 +10,13 @@ class PropertyClassEncoder(Encoder, handler_for=PropertyClass):
         return {
             p.name: Encoder(p.get(obj), self).obj_id
             for p in type(obj).properties
+        }
+
+    @classmethod
+    def _unpack(cls, data, obj_data: dict[str, str], locator=default_locator):
+        return {
+            name: Encoder.unpack(data, item_id, locator)
+            for name, item_id in obj_data.items()
         }
 
 

@@ -5,9 +5,15 @@ from tests.test_property import Example
 
 
 class TypeSchemaEncodingTest(TestCase):
-    def test_encoding(self):
+    def test_property_type_encoding(self):
         enc = encode(Example)
-        # TODO: add meaningful assertions.
+        ex_a_enc = encode(Example.a)
+        self.assertEqual(enc[ex_a_enc["root"]], ex_a_enc[ex_a_enc["root"]])
+        for t in Example.d.traits:
+            self.assertIn(str(id(t)), enc)
+        from pprint import pprint
+
+        pprint(enc)
 
     def test_type_transcoding(self):
         enc = encode(int)

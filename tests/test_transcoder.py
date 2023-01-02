@@ -12,7 +12,7 @@ from pypg import (
     encode,
 )
 from tests.test_property import Example
-from pypg.transcode import from_file, from_string, to_file, to_string
+from pypg.transcode import from_file, from_string, to_file, to_string, unpack
 
 
 class TestClass(PropertyClass):
@@ -80,3 +80,28 @@ class TranscoderTest(TestCase):
         e = encode(lt)
         with self.assertRaises(TypeError):
             decode(e)
+
+    def test_unpack(self):
+        ex = Example()
+        enc_ex = encode(ex)
+        ex_type_name, unpacked_ex_data = unpacked_ex = unpack(enc_ex)
+
+        d = {ex: 0}  # note a non-string is being used as a key.
+        enc_d = encode(d)
+        unpacked_d = unpack(enc_d)
+        typename, (unpacked_data,) = unpacked_d
+        [
+            (key_typename, key_obj_data),
+            (value_typename, value_obj_data),
+        ] = unpacked_data
+        self.assertEqual(typename, dict.__name__)
+        self.assertEqual(key_obj_data, unpacked_ex_data)
+        self.assertEqual(value_typename, int.__name__)
+        self.assertEqual(value_obj_data, 0)
+
+        l = [ex, ex]
+        enc_l = encode(l)
+        enc_l_typename, [unpacked_ex_1, unpacked_ex_2] = unpack(enc_l)
+        self.assertEqual(enc_l_typename, list.__name__)
+        self.assertEqual(unpacked_ex, unpacked_ex_1)
+        self.assertEqual(unpacked_ex_1, unpacked_ex_2)
