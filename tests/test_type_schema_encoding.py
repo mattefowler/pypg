@@ -7,9 +7,7 @@ from tests.test_property import Example
 class TypeSchemaEncodingTest(TestCase):
     def test_encoding(self):
         enc = encode(Example)
-        from pprint import pprint
-
-        pprint(enc)
+        # TODO: add meaningful assertions.
 
     def test_type_transcoding(self):
         enc = encode(int)
