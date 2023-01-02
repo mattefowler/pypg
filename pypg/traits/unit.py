@@ -1,5 +1,5 @@
 __all__ = ["Unit"]
-from pypg.property import Trait
+
 from pypg.traits.metadata import MetadataTrait
 
 

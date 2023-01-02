@@ -11,6 +11,9 @@ class TypeSchemaEncodingTest(TestCase):
         self.assertEqual(enc[ex_a_enc["root"]], ex_a_enc[ex_a_enc["root"]])
         for t in Example.d.traits:
             self.assertIn(str(id(t)), enc)
+        from pprint import pprint
+
+        pprint(enc)
 
     def test_type_transcoding(self):
         enc = encode(int)
