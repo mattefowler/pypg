@@ -15,7 +15,7 @@ __all__ = [
 
 import itertools
 from abc import ABC, abstractmethod
-from functools import cached_property
+from functools import cached_property, wraps
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 
 from pypg.type_utils import get_fully_qualified_name
@@ -24,6 +24,12 @@ T = TypeVar("T")
 
 
 class PropertyType(type):
+    """
+    Metaclass for types using Properties. All PropertyTypes have an __init__
+    generated that accepts keyword-arguments matching the names of the
+    Properties declared by the type.
+    """
+
     def __init__(cls, name: str, bases: tuple[type], attrs: dict[str, Any]):
         super().__init__(name, bases, attrs)
         properties = []
@@ -144,36 +150,83 @@ class MethodReference(FunctionReference[T]):
 
 
 class Trait:
-    def __init__(self, subject: Property = None):
-        self.subject = subject
+    """
+    A Trait is a decorator-like class that extends Property metadata and
+    behaviors.
+    """
+
+    def __init__(self):
+        """
+        Creates a new Trait instance.
+        """
+        self.subject = None
 
     def __bind__(self, subject: Property):
+        """
+        Called during type-construction to associate a Trait with a Property.
+        """
         self.subject = subject
 
     def __init_instance__(self, instance: PropertyClass):
-        pass
+        """
+        Allows a Trait to participate in construction of each instance of the
+        class that it is a part of.
+        Args:
+            instance: the instance under construction.
+        """
 
 
 class DataModifier(Trait, ABC):
+    """
+    A Datamodifier participates in data-access. It may alter the value being
+    stored or returned, or trigger side-effects.
+    """
+
     @abstractmethod
-    def apply(self, instance, value) -> Any:
-        """Perform the required modification of the data and return the result."""
+    def apply(self, instance: PropertyClass, value) -> Any:
+        """
+        Perform the required modification of the data and return the result.
+        Args:
+            instance: the object instance whose Property is being accessed.
+            value: the value of the trait's subject Property.
+
+        Returns:
+            DataModifiers must return a value, regardless of if it was changed
+            or not.
+        """
 
 
 class PostGet(DataModifier, ABC):
-    pass
+    """
+    PostGet's apply method is triggered after its subject's getter method has
+    executed.
+    """
 
 
 class PreSet(DataModifier, ABC):
-    pass
+    """
+    PreSet's apply method is triggered prior to its subject's setter method.
+    """
 
 
 class PostSet(DataModifier, ABC):
-    pass
+    """
+    PostSet's apply method is triggered after its subject's setter method has
+    executed.
+    """
 
 
 class DataModifierMixin(DataModifier, ABC):
-    def __class_getitem__(cls, *modifiers: type[PostGet | PostSet | PreSet]):
+    def __class_getitem__(cls, *modifiers: type[DataModifier]):
+        """
+        Parameterizes a DataModifier Trait class with one or more data-access
+        actions.
+        Args:
+            *modifiers: the dataaccessmodifier
+
+        Returns:
+
+        """
         return type(
             cls.__name__,
             (cls, *modifiers),
@@ -182,8 +235,8 @@ class DataModifierMixin(DataModifier, ABC):
 
     @property
     @abstractmethod
-    def modifier_triggers(self):
-        """"""
+    def modifier_triggers(self) -> tuple[type[DataModifier]]:
+        """Returns the DataModifier types implemented."""
 
 
 DEFAULT_TYPES = FunctionReference[Factory] | T | None
@@ -217,6 +270,11 @@ TraitProvider = Trait | classmethod
 
 
 class Property(Generic[T], metaclass=_PropertyMeta):
+    """
+    Property is a descriptor class used for instance-data storage as well as
+    declaring metadata and behaviors triggered by data-access.
+    """
+
     def __init__(
         self,
         default: DEFAULT_TYPES = None,
@@ -224,6 +282,28 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         setter: Setter[T] = None,
         traits: TraitProvider | Iterable[TraitProvider] = (),
     ):
+        """
+        Construct a new Property attribute of a class. A Property will only
+        function as intended in classes deriving from PropertyClass or that use
+        the PropertyType metaclass.
+        Args:
+            default: used when a value for this Property is not provided at
+                construction time. Default may be a literal or callable object
+                accepting the instance under construction that returns the
+                composing instance's value for this Property. Default factories
+                may be a classmethod or an instance method, and any method
+                overrides will be used regardless of where in the type
+                hierarchy the Property is declared.
+            getter: a callable object used to handle the get-semantics for the
+                Property.
+            setter: a callable object used to handle the set-semantics for the
+                Property.
+            traits: a collection of Trait instances, or classmethods returning
+                them, that apply to this Property. Traits are collected and
+                applied in a context-specific manner such that the traits of a
+                Property provided by a classmethod may be overridden by a
+                subclass of the type originally declaring the Property.
+        """
         super().__init__()
         self._subclass_proxies: dict[PropertyType, _Proxy] = {}
         self._default = default
@@ -250,17 +330,43 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         self._subclass_proxies[cls] = proxy
 
     def __init_instance__(self, instance: PropertyClass, value):
+        """
+        Allows a Property and its Traits to participate in instance
+        construction.
+        Args:
+            instance: the instance being constructed.
+            value: the value of this Property to be assigned to instance.
+        """
         proxy = self._subclass_proxies[type(instance)]
         proxy.__init_instance__(instance, value)
 
-    def create_default_value(self, instance):
+    def create_default_value(self, instance) -> T:
+        """
+        Return the value used in construction of instance if no keyword
+        argument matching self's name is provided.
+        Args:
+            instance: the instance whose default value of self is returned.
+        Returns:
+            a default of this property for the instance provided.
+        """
         return (
             self._default(instance)
             if isinstance(self._default, (FunctionReference, Callable))
             else self._default
         )
 
-    def default_getter(self, instance):
+    def default_getter(self, instance) -> T:
+        """
+        The getter method used by a Property if none is otherwise provided. It
+        retrieves its data in instance.__dict__ using self as the key. If
+        instance is under construction, the initialization process will
+        construct it on-demand as required.
+        Args:
+            instance: the instance storing the data for self.
+        Returns:
+            the value of this property for instance.
+        """
+
         try:
             return instance.__dict__[self]
         except KeyError as k:
@@ -279,6 +385,13 @@ class Property(Generic[T], metaclass=_PropertyMeta):
             return self.default_getter(instance)
 
     def default_setter(self, instance, value):
+        """
+        The setter method used by a Property if none is otherwise provided. It
+        stores its data in instance.__dict__ using self as the key.
+        Args:
+            instance: the instance whose Property value is being set.
+            value: the value to be stored for instance.
+        """
         instance.__dict__[self] = value
 
     def __get__(self, instance: PropertyClass, owner: PropertyType):
@@ -288,14 +401,31 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def __set__(self, instance, value):
         self._subclass_proxies[type(instance)].set(instance, value)
 
-    def get(self, instance):  # pragma: no cover
+    def get(self, instance) -> T:
+        """
+        Convenience method to use Property get-semantics functionally.
+        Args:
+            instance: the instance whose data is retrieved.
+
+        Returns:
+            Instance's value of this Property.
+        """
         return getattr(instance, self.name)
 
-    def set(self, instance, value):  # pragma: no cover
+    def set(self, instance, value):
+        """
+            Convenience method to use Property set-semantics functionally.
+        Args:
+            instance: the instance whose data is assigned.
+            value: the value to be assigned to this instance and Property.
+        """
         return setattr(instance, self.name, value)
 
     @property
     def traits(self):
+        """
+        Returns: The Traits of this Property.
+        """
         return self.__traits
 
     def __str__(self):
@@ -303,6 +433,11 @@ class Property(Generic[T], metaclass=_PropertyMeta):
 
 
 class _Proxy:
+    """
+    _Proxy wraps a Property to provide subclass-specific Traits, allowing
+    derived types to modify the behaviors and metadata of base-class Properties
+    """
+
     __qualname__ = Property.__qualname__
     __name__ = Property.__name__
 
@@ -331,12 +466,14 @@ class _Proxy:
             else:
                 yield from result
 
+    @wraps(Property.get)
     def get(self, instance):
         result = self._property._getter(instance)
         for t in self.__post_get:
             result = t.apply(instance, result)
         return result
 
+    @wraps(Property.set)
     def set(self, instance, value):
         for t in self.__pre_set:
             value = t.apply(instance, value)
@@ -344,12 +481,14 @@ class _Proxy:
         for t in self.__post_set:
             t.apply(instance, value)
 
+    @wraps(Property.__init_instance__)
     def __init_instance__(self, instance, value):
         for t in self.traits:
             t.__init_instance__(instance)
         self.set(instance, value)
 
     @property
+    @wraps(Property.traits.fget)
     def traits(self):
         return self.__traits
 
@@ -360,5 +499,11 @@ class _Proxy:
 
 
 class PropertyClass(metaclass=PropertyType):
+    """
+    PropertyClass is a convenience base class for classes using Properties. All
+    PropertyTypes have an __init__ generated that accepts keyword-arguments
+    matching the names of the Properties declared by the type.
+    """
+
     def __init__(self, **config):
         super().__init__(**config)
