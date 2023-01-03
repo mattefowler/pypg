@@ -1,5 +1,5 @@
 # python property graph (pypg)
-Object-oriented descriptor properties designed capturing complex data-graphs from objects with rich metadata 
+Object-oriented descriptor properties designed for capturing complex data-graphs and rich metadata from objects and types.
 
 ## Motivation
 pypg provides a flexible and terse framework for expressing object schemas, initialization, de/serializiation, and declarative behavior. 
