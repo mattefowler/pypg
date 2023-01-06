@@ -117,7 +117,7 @@ Python descriptors provide a powerful mechanism for encoding type-information an
 * value validation
 * units of measure
 
-By composing decorator-like objects, here called Traits, Property objects provide an expressive but powerful syntax for defining not just data, but also runtime-behaviors, that should occur with data access semantics. For more examples, see: 
+By composing decorator-like objects, here called Traits, Property objects provide an expressive but powerful syntax for defining not just data, but also runtime-behaviors that should occur with data access semantics. For more examples, see: 
 
 https://github.com/mattefowler/pypg/blob/main/tests/test_traits.py
 
