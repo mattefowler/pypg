@@ -25,7 +25,7 @@ class PropertyClassDecoder(Decoder, handler_for=PropertyClass):
         return obj_type(
             **{
                 name: Decoder(
-                    self.encoded_data, attr, self.locator, self
+                    self.encoded_data, attr, self.locator, self, overrides=self.overrides
                 ).instance
                 for name, attr in property_values.items()
             }

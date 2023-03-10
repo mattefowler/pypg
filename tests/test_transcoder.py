@@ -1,5 +1,6 @@
 import os
 import tempfile
+from typing import Any
 from unittest import TestCase
 
 from pypg import (
@@ -12,7 +13,7 @@ from pypg import (
     encode,
 )
 from tests.test_property import Example
-from pypg.transcode import from_file, from_string, to_file, to_string, unpack
+from pypg.transcode import from_file, from_string, to_file, to_string, unpack, Decoder
 
 
 class TestClass(PropertyClass):
@@ -105,3 +106,13 @@ class TranscoderTest(TestCase):
         self.assertEqual(enc_l_typename, list.__name__)
         self.assertEqual(unpacked_ex, unpacked_ex_1)
         self.assertEqual(unpacked_ex_1, unpacked_ex_2)
+
+    def test_decode_override(self):
+        class ExampleOverrider(Decoder):
+            def _decode(self, obj_type: type, value: Any) -> Any:
+                return "asdf"
+
+        ex = Example()
+        encoded = encode(ex)
+        asdf = decode(encoded, overrides={Example: ExampleOverrider})
+        self.assertEqual("asdf", asdf)
