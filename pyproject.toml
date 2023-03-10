@@ -1,7 +1,8 @@
-[build-system]
-requires=["setuptools", "wheel"]
+requires=["setuptools", "wheel", "setuptools-git-versioning<2"]
+build-backend = "setuptools.build_meta"
 
 [project]
+dynamic=["version"]
 name="property-graph"
 description="python library for working with objects as graphs of property data"
 readme="README.md"
@@ -14,11 +15,7 @@ classifiers=[
     "Topic :: Software Development :: Libraries :: Python Modules",
     "License :: Apache-2.0"
 ]
-license="Apache-2.0"
+license={file="LICENSE"}
 requires-python=">=3.10"
-packages=[
-    {include="pypg"},
-    {exclude="tests"}
-]
 [tool.black]
 line-length=79

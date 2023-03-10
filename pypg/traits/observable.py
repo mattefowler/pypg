@@ -21,7 +21,9 @@ from pypg.property import DataModifierMixin
 
 
 class DeliveryPolicy(ABC):
-    def __init__(self, on_update: Callable[[Any], Any], update_policy: UpdatePolicy):
+    def __init__(
+        self, on_update: Callable[[Any], Any], update_policy: UpdatePolicy
+    ):
         self._on_update = on_update
         self._update_policy = update_policy
 
@@ -124,7 +126,9 @@ class Observable(DataModifierMixin, ABC):
         return getattr(instance, cls.watchlist_key(p))
 
     def apply(self, instance, value) -> Any:
-        watchlist: list[DeliveryPolicy] = self.get_watchlist(instance, self.subject)
+        watchlist: list[DeliveryPolicy] = self.get_watchlist(
+            instance, self.subject
+        )
         for udp in watchlist:
             udp.update(value)
         return value

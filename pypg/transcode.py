@@ -56,7 +56,9 @@ class Encoder(_Transcoder, handler_for=primitives):
     handler_for class-keyword.
     """
 
-    def __new__(cls, obj, parent: Encoder | None):
+    def __new__(
+        cls, obj, parent: Encoder | None, overrides: dict[type, type[Encoder]] = None
+    ):
         """
         Create a new encoder for the object. If a more-specific encoder-type
         for the object's type exists than the one specific, construct it
@@ -66,13 +68,21 @@ class Encoder(_Transcoder, handler_for=primitives):
             parent: the Encoder constructing this one, or None if obj is the
             first object to be encoded.
         """
-        encoder_type = cls[type(obj)]
+        if overrides:
+            try:
+                encoder_type = TypeRegistry(overrides)[type(obj) :]
+            except KeyError:
+                encoder_type = cls[type(obj)]
+        else:
+            encoder_type = cls[type(obj)]
         if encoder_type is cls:
             return super().__new__(cls)
         else:
-            return encoder_type(obj, parent)
+            return encoder_type(obj, parent, overrides)
 
-    def __init__(self, obj, parent: Encoder | None):
+    def __init__(
+        self, obj, parent: Encoder | None, overrides: dict[type, type[Encoder]]
+    ):
         """
         Initialize a new encoder for the object.
         Args:
@@ -81,6 +91,7 @@ class Encoder(_Transcoder, handler_for=primitives):
             first object to be encoded.
         """
         self.parent = parent
+        self.overrides = overrides
         if parent is None:
             self.data: dict[str, str | list[str, Any]] = {}
         else:
@@ -221,7 +232,7 @@ class NoneTypeDecoder(Decoder, handler_for=NoneType):
         return None
 
 
-def encode(obj) -> Any:
+def encode(obj, overrides: dict[type, type[Encoder]] = None) -> Any:
     """
     A convenience function to simplify the syntax of using an Encoder to
     transform an object's data into a JSON-serializable format.
@@ -231,10 +242,10 @@ def encode(obj) -> Any:
     Returns:
         transformed-data of obj
     """
-    return Encoder(obj, None).data
+    return Encoder(obj, None, overrides).data
 
 
-def to_string(obj) -> str:
+def to_string(obj, overrides: dict[type, type[Encoder]] = None) -> str:
     """
     A convenience function to simplify using an Encoder to transform an
     object's data into a JSON-parseable string.
@@ -244,7 +255,7 @@ def to_string(obj) -> str:
     Returns:
         a JSON-parseable string of the object's data.
     """
-    return json.dumps(encode(obj))
+    return json.dumps(encode(obj, overrides))
 
 
 def from_string(encoded_object: str) -> Any:
@@ -292,7 +303,7 @@ class TypeDecoder(Decoder, handler_for=type):
 
 class CollectionEncoder(Encoder, handler_for=(tuple, set, list)):
     def _encode(self, obj: Collection):
-        return [Encoder(item, self).obj_id for item in obj]
+        return [Encoder(item, self, self.overrides).obj_id for item in obj]
 
     @classmethod
     def _unpack(cls, data, obj_data: list[str], locator=default_locator):
@@ -312,7 +323,9 @@ class CollectionDecoder(Decoder, handler_for=(tuple, set, list)):
 class DictEncoder(Encoder, handler_for=dict):
     def _encode(self, obj: dict):
         return {
-            Encoder(key, self).obj_id: Encoder(value, self).obj_id
+            Encoder(key, self, self.overrides)
+            .obj_id: Encoder(value, self, self.overrides)
+            .obj_id
             for key, value in obj.items()
         }
 
