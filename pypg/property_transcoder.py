@@ -8,7 +8,7 @@ from pypg.transcode import Decoder, Encoder, default_locator
 class PropertyClassEncoder(Encoder, handler_for=PropertyClass):
     def _encode(self, obj: PropertyClass):
         return {
-            p.name: Encoder(p.get(obj), self).obj_id
+            p.name: Encoder(p.get(obj), self, self.overrides).obj_id
             for p in type(obj).properties
         }
 
@@ -25,7 +25,7 @@ class PropertyClassDecoder(Decoder, handler_for=PropertyClass):
         return obj_type(
             **{
                 name: Decoder(
-                    self.encoded_data, attr, self.locator, self
+                    self.encoded_data, attr, self.locator, self, overrides=self.overrides
                 ).instance
                 for name, attr in property_values.items()
             }
@@ -35,8 +35,8 @@ class PropertyClassDecoder(Decoder, handler_for=PropertyClass):
 class PropertyEncoder(Encoder, handler_for=Property):
     def _encode(self, p: Property):
         return {
-            "value_type": Encoder(p.value_type, self).obj_id,
-            "traits": [Encoder(t, self).obj_id for t in p.traits],
+            "value_type": Encoder(p.value_type, self, self.overrides).obj_id,
+            "traits": [Encoder(t, self, self.overrides).obj_id for t in p.traits],
         }
 
 
@@ -47,12 +47,12 @@ class TraitEncoder(Encoder, handler_for=Trait):
 
 class MetadataTraitEncoder(Encoder, handler_for=MetadataTrait):
     def _encode(self, obj: MetadataTrait):
-        return {"value": Encoder(obj.value, self).obj_id}
+        return {"value": Encoder(obj.value, self, self.overrides).obj_id}
 
 
 class PropertyTypeEncoder(Encoder, handler_for=PropertyType):
     def _encode(self, ptype: PropertyType):
         return {
-            p.name: Encoder(getattr(ptype, p.name), self).obj_id
+            p.name: Encoder(getattr(ptype, p.name), self, self.overrides).obj_id
             for p in ptype.properties
         }
