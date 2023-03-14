@@ -234,7 +234,7 @@ class DataModifierMixin(DataModifier, ABC):
         return type(
             cls.__name__,
             (cls, *modifiers),
-            {cls.modifier_triggers.fget.__name__: modifiers},
+            {cls.modifier_triggers.fget.__name__: modifiers, "__module__": cls.__module__},
         )
 
     @property

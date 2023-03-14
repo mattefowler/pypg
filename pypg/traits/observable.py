@@ -18,6 +18,7 @@ from typing import Any
 
 from pypg import Property, PropertyClass
 from pypg.property import DataModifierMixin
+from pypg.type_utils import get_fully_qualified_name
 
 
 class DeliveryPolicy(ABC):
@@ -146,6 +147,8 @@ class Observable(DataModifierMixin, ABC):
         watchlist.append(delivery_policy)
         return Subscription(delivery_policy, watchlist)
 
+    def __str__(self):
+        return str([get_fully_qualified_name(t) for t in self.modifier_triggers])
 
 class Subscription:
     def __init__(
