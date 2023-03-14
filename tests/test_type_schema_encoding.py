@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from pypg import decode, encode
+from pypg.transcode import unpack
 from tests.test_property import Example
 
 
@@ -21,3 +22,41 @@ class TypeSchemaEncodingTest(TestCase):
         expected = {"root": intid, intid: ["type", str(int.__name__)]}
         self.assertEqual(expected, enc)
         self.assertIs(int, decode(enc))
+
+    def test_unpack_schema(self):
+        actual = unpack(encode(Example))
+        expected = [
+            "tests.test_property.Example",
+            {
+                "a": [
+                    "pypg.property.Property",
+                    {"value_type": ["type", "float"], "traits": []},
+                ],
+                "a2": [
+                    "pypg.property.Property",
+                    {"value_type": ["type", "float"], "traits": []},
+                ],
+                "b": [
+                    "pypg.property.Property",
+                    {"value_type": ["type", "float"], "traits": []},
+                ],
+                "c": [
+                    "pypg.property.Property",
+                    {"value_type": ["type", "int"], "traits": []},
+                ],
+                "d": [
+                    "pypg.property.Property",
+                    {
+                        "value_type": ["type", "float"],
+                        "traits": [
+                            ["pypg.traits.unit.Unit", {"value": ["str", "mm"]}],
+                            [
+                                "pypg.traits.observable.Observable",
+                                "['pypg.property.PostSet']",
+                            ],
+                        ],
+                    },
+                ],
+            },
+        ]
+        self.assertEqual(expected, actual)

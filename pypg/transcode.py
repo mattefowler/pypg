@@ -111,9 +111,13 @@ class Encoder(_Transcoder, handler_for=primitives):
         """
         return self._obj_id
 
+    @classmethod
+    def _get_obj_type(cls, obj):
+        return type(obj)
+
     def _pack(self, obj) -> str:
         obj_id = str(id(obj))
-        obj_type = type(obj)
+        obj_type = self._get_obj_type(obj)
         if obj_id not in self.data:
             encoded_data = [f"{get_fully_qualified_name(obj_type)}"]
             # pack data in 2 stages to prevent infinite recursion when encoding self-referential objects.
