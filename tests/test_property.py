@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from pypg.property import (
+from pypg import (
     MethodReference,
     PostSet,
     Property,

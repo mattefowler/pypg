@@ -1,7 +1,7 @@
 from unittest import TestCase
 
-from pypg.locator import Locator, allow_subclass, strict
-from pypg.type_utils import get_fully_qualified_name
+from pypg import Locator, allow_subclass, strict
+from pypg import get_fully_qualified_name
 
 
 class Foo:

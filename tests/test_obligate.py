@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from pypg import Property, PropertyClass
-from pypg.traits.obligate import Obligate
+from pypg.traits import Obligate
 
 
 class TestObligate(TestCase):
