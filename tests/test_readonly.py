@@ -1,7 +1,7 @@
 from unittest import TestCase
 
 from pypg import Property, PropertyClass
-from pypg.traits.read_only import ReadOnly
+from pypg.traits import ReadOnly
 
 
 class TestReadOnly(TestCase):

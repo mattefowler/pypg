@@ -26,6 +26,7 @@ Using pypg, the DAG above can be expressed like so:
 from pypg import Property, PropertyClass
 from pypg.transcode import encode, decode
 
+
 class Node(PropertyClass):
     upstream = Property[list["Node"]]()
 

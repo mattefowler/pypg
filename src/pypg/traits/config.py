@@ -1,5 +1,5 @@
 from pypg import Encoder, encode, MetadataTrait
-from pypg.property import Trait, PropertyClass, Property, PropertyType
+from pypg.property import PropertyClass, Property, PropertyType
 from pypg.property_transcoder import PropertyClassEncoder
 
 
