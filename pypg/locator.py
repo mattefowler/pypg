@@ -28,6 +28,9 @@ def allow_subclass(typedict: dict[str, type], fully_qualified_name: str):
         return t
 
 
+_nonetype_fqn = get_fully_qualified_name(type(None))
+
+
 class Locator:
     def __init__(self, *allowed: type, load_policy: LoadPolicy | None = None):
         self.__load_policy = load_policy
@@ -40,6 +43,8 @@ class Locator:
         self.__allowed[get_fully_qualified_name(t)] = t
 
     def __call__(self, fully_qualified_name: str):
+        if fully_qualified_name == _nonetype_fqn:
+            return type(None)
         if self.__load_policy:
             return self.__load_policy(self.__allowed, fully_qualified_name)
         else:

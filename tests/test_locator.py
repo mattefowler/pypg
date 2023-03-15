@@ -34,3 +34,6 @@ class TestLocator(TestCase):
     def test_not_found(self):
         with self.assertRaises(TypeError):
             Locator()("asdf")
+
+    def test_none(self):
+        self.assertIs(type(None), Locator()(get_fully_qualified_name(type(None))))
