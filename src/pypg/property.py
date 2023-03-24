@@ -221,7 +221,7 @@ class PostSet(DataModifier, ABC):
 
 
 class DataModifierMixin(DataModifier, ABC):
-    def __class_getitem__(cls, *modifiers: type[DataModifier]):
+    def __class_getitem__(cls, modifiers: type[DataModifier]|Iterable[DataModifier]):
         """
         Parameterizes a DataModifier Trait class with one or more data-access
         actions.
@@ -231,6 +231,8 @@ class DataModifierMixin(DataModifier, ABC):
         Returns:
 
         """
+        if not isinstance(modifiers, Iterable):
+            modifiers = (modifiers,)
         return type(
             cls.__name__,
             (cls, *modifiers),
