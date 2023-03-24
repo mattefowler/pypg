@@ -96,3 +96,16 @@ class ObservableTest(TestCase):
             self.w0.p = 1234
             self.assertTrue(w0_delivery.await_delivery(2))
             self.assertEqual([(value, ex)], caught)
+
+    def test_multiple_modifier_triggers(self):
+        class C(PropertyClass):
+            p = Property[int](traits=[Observable[PostSet, PostGet]()])
+
+        c = C()
+        delivered = []
+        expected = [1]
+        with Observable.watch(c, C.p, SynchronousDelivery(delivered.append, Always())):
+            c.p = 1
+            for i in range(3):
+                expected.append(c.p)
+        self.assertEqual(expected, delivered)
