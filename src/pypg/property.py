@@ -54,9 +54,7 @@ class PropertyType(type):
         cls_init = cls.__init__
 
         def initializer(instance: PropertyClass, *args, **property_values):
-            with _InitializationContext(
-                instance, **property_values
-            ) as init_ctx:
+            with _InitializationContext(instance, **property_values) as init_ctx:
                 init_ctx.initialize()
                 cls_init(instance, *args, **init_ctx.config)
 
@@ -77,9 +75,7 @@ class _InitMeta(type):
 
 
 class _InitializationContext(metaclass=_InitMeta):
-    def __init__(
-        self, instance: PropertyClass, **property_values: dict[str, Any]
-    ):
+    def __init__(self, instance: PropertyClass, **property_values: dict[str, Any]):
         self._instance = instance
         self.config = property_values
         self._uninitialized = [*type(instance).properties]
@@ -163,7 +159,7 @@ class Trait:
         """
         Creates a new Trait instance.
         """
-        self.subject = None
+        self.subject: Property = None
 
     def __bind__(self, subject: Property):
         """
@@ -221,7 +217,7 @@ class PostSet(DataModifier, ABC):
 
 
 class DataModifierMixin(DataModifier, ABC):
-    def __class_getitem__(cls, modifiers: type[DataModifier]|Iterable[DataModifier]):
+    def __class_getitem__(cls, modifiers: type[DataModifier] | Iterable[DataModifier]):
         """
         Parameterizes a DataModifier Trait class with one or more data-access
         actions.
@@ -236,7 +232,10 @@ class DataModifierMixin(DataModifier, ABC):
         return type(
             cls.__name__,
             (cls, *modifiers),
-            {cls.modifier_triggers.fget.__name__: modifiers, "__module__": cls.__module__},
+            {
+                cls.modifier_triggers.fget.__name__: modifiers,
+                "__module__": cls.__module__,
+            },
         )
 
     @property
@@ -266,9 +265,7 @@ class _PropertyMeta(type):
         return super().__instancecheck__(instance)
 
     def __subclasscheck__(cls, subclass):
-        return issubclass(_Proxy, subclass) or super().__subclasscheck__(
-            subclass
-        )
+        return issubclass(_Proxy, subclass) or super().__subclasscheck__(subclass)
 
 
 TraitProvider = Trait | classmethod
@@ -433,6 +430,10 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         """
         return self.__traits
 
+    def __lt__(self, other):
+        """implemented to support entities that assume dict-keys are sortable."""
+        return self.name < other
+
     def __str__(self):
         return f"{get_fully_qualified_name(self.__declaring_type)}.{self.name}"
 
@@ -450,26 +451,16 @@ class _Proxy:
         self._property = p
         self.__owner = owner
         self.__traits = tuple(
-            itertools.chain.from_iterable(
-                map(self.__get_traits, self._property.traits)
-            )
+            itertools.chain.from_iterable(map(self.__get_traits, self._property.traits))
         )
-        self.__post_get = tuple(
-            t for t in self.__traits if isinstance(t, PostGet)
-        )
-        self.__pre_set = tuple(
-            t for t in self.__traits if isinstance(t, PreSet)
-        )
-        self.__post_set = tuple(
-            t for t in self.__traits if isinstance(t, PostSet)
-        )
+        self.__post_get = tuple(t for t in self.__traits if isinstance(t, PostGet))
+        self.__pre_set = tuple(t for t in self.__traits if isinstance(t, PreSet))
+        self.__post_set = tuple(t for t in self.__traits if isinstance(t, PostSet))
 
     def __getattr__(self, item):
         return getattr(self._property, item)
 
-    def __get_traits(
-        self, trait_provider: Trait | classmethod
-    ) -> Iterable[Trait]:
+    def __get_traits(self, trait_provider: Trait | classmethod) -> Iterable[Trait]:
         if isinstance(trait_provider, Trait):
             yield trait_provider
         else:
@@ -508,9 +499,7 @@ class _Proxy:
         return self.__traits
 
     def __str__(self):
-        return (
-            f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
-        )
+        return f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
 
 
 class PropertyClass(metaclass=PropertyType):
