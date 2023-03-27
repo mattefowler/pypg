@@ -3,7 +3,7 @@ on:
   - release
 
 jobs:
-  - publish:
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Publish a Python distribution to PyPI
