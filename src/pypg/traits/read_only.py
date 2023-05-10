@@ -12,7 +12,7 @@ class ReadOnly(Overridable, PreSet, override_target="apply"):
         return value
 
     def apply(self, instance, value) -> Any:
-        if self.subject in instance.__dict__:
+        if self.subject.attribute_key in instance.__dict__:
             raise PermissionError(
                 f"{self.subject} of {instance} is read-only and cannot be reassigned."
             )
