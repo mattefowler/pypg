@@ -313,7 +313,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         self._subclass_proxies: dict[PropertyType, _Proxy] = {}
         self._default = default
         self.name = None
-        self.__declaring_type = None
+        self.__declaring_type: PropertyType = None
         self._getter = self.default_getter if getter is None else getter
         self._setter = self.default_setter if setter is None else setter
         self.__traits = tuple(
@@ -360,6 +360,10 @@ class Property(Generic[T], metaclass=_PropertyMeta):
             else self._default
         )
 
+    @cached_property
+    def attribute_key(self):
+        return f"#_{self.__declaring_type.__name__}__{self.name}"
+
     def default_getter(self, instance) -> T:
         """
         The getter method used by a Property if none is otherwise provided. It
@@ -373,7 +377,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         """
 
         try:
-            return instance.__dict__[self]
+            return instance.__dict__[self.attribute_key]
         except KeyError as k:
             init_ctx = None
             try:
@@ -397,7 +401,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
             instance: the instance whose Property value is being set.
             value: the value to be stored for instance.
         """
-        instance.__dict__[self] = value
+        instance.__dict__[self.attribute_key] = value
 
     def __get__(self, instance: PropertyClass, owner: PropertyType):
         proxy = self._subclass_proxies[owner]
