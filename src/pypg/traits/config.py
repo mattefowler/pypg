@@ -6,7 +6,7 @@ from pypg.property_transcoder import PropertyClassEncoder
 class ConfigEncoder(PropertyClassEncoder):
     def _encode(self, obj: PropertyClass):
         return {
-            p.name: Encoder(p.get(obj), self, self.overrides).obj_id
+            p.name: Encoder(p.get(obj), self, self.overrides).obj_data
             for p in filter(Config.has_config_data, type(obj).properties)
         }
 
