@@ -12,7 +12,7 @@ class CfgDataCls(PropertyClass):
     def _make_inner(self):
         return InnerCls()
 
-    inner = Property[InnerCls](default=MethodReference(_make_inner))
+    inner = Property[InnerCls](default=_make_inner)
     excluded = Property[int](default=0, traits=[Config(False)])
     included = Property[int](default=0, traits=[Config(True)])
     excluded_inner = Property[InnerCls](traits=[Config(False)])
