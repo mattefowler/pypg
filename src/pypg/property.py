@@ -16,6 +16,7 @@ __all__ = [
 import itertools
 from abc import ABC, abstractmethod
 from functools import cached_property, wraps
+from types import FunctionType
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
 
 from pypg.type_utils import get_fully_qualified_name
@@ -271,6 +272,10 @@ class _PropertyMeta(type):
 TraitProvider = Trait | classmethod
 
 
+def is_method(cls: type, obj: Any) -> bool:
+    return isinstance(obj, (FunctionType, classmethod, staticmethod)) and obj in cls.__dict__.values()
+
+
 class Property(Generic[T], metaclass=_PropertyMeta):
     """
     Property is a descriptor class used for instance-data storage as well as
@@ -324,6 +329,10 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def __bind__(self, name, cls: PropertyType):
         self.name = name
         self.__declaring_type = cls
+        self._default, self._getter, self._setter = (
+            MethodReference(obj) if is_method(cls, obj) else obj
+            for obj in (self._default, self._getter, self._setter)
+        )
 
     def __bind_subclass__(self, cls):
         proxy = _Proxy(self, cls)
