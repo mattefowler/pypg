@@ -10,6 +10,7 @@ __all__ = [
 ]
 
 import json
+from abc import abstractmethod
 from collections.abc import Collection, Iterable
 from types import NoneType
 from typing import Any, Union, Self
@@ -29,7 +30,9 @@ class _Transcoder:
 
     _registry: TypeRegistry[_Transcoder] = None
 
-    def __init_subclass__(cls, handler_for: type | Iterable[type] = (), **kwargs):
+    def __init_subclass__(
+        cls, handler_for: type | Iterable[type] = (), **kwargs
+    ):
         if isinstance(handler_for, type):
             handler_for = (handler_for,)
         if cls._registry is None:
@@ -50,7 +53,7 @@ class _Transcoder:
         return cls[obj_type]
 
 
-class Encoder(_Transcoder, handler_for=primitives):
+class Encoder(_Transcoder):
     """
     Encoders transform python objects into JSON-compliant data-structures for
     storage or transmission. All constituent object data is stored in a flat
@@ -64,7 +67,10 @@ class Encoder(_Transcoder, handler_for=primitives):
     """
 
     def __new__(
-        cls, obj, parent: Encoder | None, overrides: dict[type, type[Encoder]] = None
+        cls,
+        obj,
+        parent: Encoder | None,
+        overrides: dict[type, type[Encoder]] = None,
     ):
         """
         Create a new encoder for the object. If a more-specific encoder-type
@@ -76,10 +82,7 @@ class Encoder(_Transcoder, handler_for=primitives):
             first object to be encoded.
         """
         encoder_type = cls._resolve_handler(type(obj), overrides)
-        if encoder_type is cls:
-            return super().__new__(cls)
-        else:
-            return encoder_type(obj, parent, overrides)
+        return super().__new__(encoder_type)
 
     def __init__(
         self, obj, parent: Encoder | None, overrides: dict[type, type[Encoder]]
@@ -97,7 +100,8 @@ class Encoder(_Transcoder, handler_for=primitives):
             self.data: dict[str, str | list[str, Any]] = {}
         else:
             self.data = parent.data
-        self._obj_id = self._pack(obj)
+        self._obj_id = id(obj)
+        self.obj_data = self._pack(obj)
         if parent is None:
             self.data[self.root_key] = self.obj_id
 
@@ -115,34 +119,30 @@ class Encoder(_Transcoder, handler_for=primitives):
     def _get_obj_type(cls, obj):
         return type(obj)
 
-    def _pack(self, obj) -> str:
-        obj_id = str(id(obj))
+    def _pack(self, obj) -> list[str, int, Any]:
         obj_type = self._get_obj_type(obj)
-        if obj_id not in self.data:
-            encoded_data = [f"{get_fully_qualified_name(obj_type)}"]
-            # pack data in 2 stages to prevent infinite recursion when encoding self-referential objects.
-            self.data[obj_id] = encoded_data
-            encoded_data.append(self._encode(obj))
-        return obj_id
+        if self.obj_id in self.data:
+            return Encoder(
+                _ObjectReference(obj), self, self.overrides
+            ).obj_data
+        encoded_data = [
+            get_fully_qualified_name(obj_type),
+            (self._encode(obj), self.obj_id),
+        ]
+        self.data[self.obj_id] = encoded_data
+        return encoded_data
 
     def _encode(self, obj):
         return obj
 
-    @classmethod
-    def unpack(cls, data, obj_id=_Transcoder.root_key, locator=default_locator):
-        """Transform encoded data into a more readable format, expanding
-        objects into container elements instead of referencing by id, and
-        duplicating any shared references."""
-        if obj_id == _Transcoder.root_key:
-            obj_id = data[obj_id]
-        obj_type_fqn, obj_data = data[obj_id]
-        obj_type = locator(obj_type_fqn)
-        e_type = cls[obj_type]
-        return [obj_type_fqn, e_type._unpack(data, obj_data, locator)]
 
-    @classmethod
-    def _unpack(cls, data, obj_data, locator=default_locator):
-        return obj_data
+class PrimitiveEncoder(Encoder, handler_for=primitives):
+    def _pack(self, obj) -> list[str, int, Any]:
+        obj_type = self._get_obj_type(obj)
+        return [
+            get_fully_qualified_name(obj_type),
+            self._encode(obj),
+        ]
 
 
 class Decoder(_Transcoder, handler_for=primitives):
@@ -154,7 +154,6 @@ class Decoder(_Transcoder, handler_for=primitives):
     def __new__(
         cls,
         encoded_data: dict,
-        obj_id: str | None,
         locator: Locator,
         parent: Decoder | None,
         overrides: dict[type, type[Decoder]] = None,
@@ -169,20 +168,15 @@ class Decoder(_Transcoder, handler_for=primitives):
             locator:
             parent:
         """
-        if obj_id is None:
-            obj_id = encoded_data[cls.root_key]
-        attr_type, attr_data = cls._unpack(encoded_data, obj_id, locator)
+        # if obj_id is None:
+        #     obj_id = encoded_data[cls.root_key]
+        attr_type, *_ = cls._unpack(encoded_data, locator)
         decoder_cls = cls._resolve_handler(attr_type, overrides)
-        return (
-            super().__new__(cls)
-            if decoder_cls is cls
-            else decoder_cls(encoded_data, obj_id, locator, parent, overrides=overrides)
-        )
+        return super().__new__(decoder_cls)
 
     def __init__(
         self,
         encoded_data: dict,
-        obj_id: str | None,
         locator: Locator,
         parent: Decoder | None,
         overrides: dict[type, type[Decoder]],
@@ -194,44 +188,62 @@ class Decoder(_Transcoder, handler_for=primitives):
         else:
             self.decoded_objects = parent.decoded_objects
         self.encoded_data = encoded_data
-        self.obj_id = obj_id if obj_id is not None else encoded_data[self.root_key]
         self.locator = locator
         self.instance = self.decode()
 
     def decode(self) -> Any:
+        member_type, (member_data, obj_id) = self._unpack(
+            self.encoded_data, self.locator
+        )
         try:
-            return self.decoded_objects[self.obj_id]
+            return self.decoded_objects[obj_id]
         except KeyError:
             pass
-
-        member_type, member_data = self._unpack(
-            self.encoded_data, self.obj_id, self.locator
-        )
         instance = self._decode(member_type, member_data)
-        self.decoded_objects[self.obj_id] = instance
+        self.decoded_objects[obj_id] = instance
         return instance
 
     @classmethod
     def _unpack(
         cls,
         encoded_data: dict[str, list[str, Any]],
-        obj_id: str,
         locator: Locator,
     ) -> tuple[type, Any]:
-        fully_qualified_name, value = encoded_data[obj_id]
+        fully_qualified_name, obj_data = encoded_data
         try:
             t = locator(fully_qualified_name)
         except TypeError:
             if fully_qualified_name != NoneType.__name__:
                 raise
             t = NoneType
-        return t, value
+        return t, obj_data
 
     def _decode(self, obj_type: type, value: Any) -> Any:
         return obj_type(value)
 
 
-class NoneTypeDecoder(Decoder, handler_for=NoneType):
+class PrimitiveDecoder(Decoder, handler_for=primitives):
+    def decode(self) -> Any:
+        member_type, value = self._unpack(self.encoded_data, self.locator)
+        return self._decode(member_type, value)
+
+
+class _ObjectReference:
+    def __init__(self, obj: Any):
+        self.obj = obj
+
+
+class _ObjectReferenceEncoder(Encoder, handler_for=_ObjectReference):
+    def _encode(self, obj_ref):
+        return id(obj_ref.obj)
+
+
+class _ObjectReferenceDecoder(Decoder, handler_for=_ObjectReference):
+    def _decode(self, obj_type: type, value: Any) -> Any:
+        return self.decoded_objects[value]
+
+
+class NoneTypeDecoder(PrimitiveDecoder, handler_for=NoneType):
     def _decode(self, obj_type: type, value: Any) -> Any:
         return None
 
@@ -246,7 +258,7 @@ def encode(obj, overrides: dict[type, type[Encoder]] = None) -> Any:
     Returns:
         transformed-data of obj
     """
-    return Encoder(obj, None, overrides).data
+    return Encoder(obj, None, overrides).obj_data
 
 
 def to_string(obj, overrides: dict[type, type[Encoder]] | None = None) -> str:
@@ -276,10 +288,14 @@ def from_string(
     Returns:
         a JSON-parseable string of the object's data.
     """
-    return decode(json.loads(encoded_object), locator=locator, overrides=overrides)
+    return decode(
+        json.loads(encoded_object), locator=locator, overrides=overrides
+    )
 
 
-def to_file(obj, path: str, overrides: dict[type, type[Encoder]]|None=None):
+def to_file(
+    obj, path: str, overrides: dict[type, type[Encoder]] | None = None
+):
     with open(path, "w") as f:
         json.dump(encode(obj, overrides=overrides), f)
 
@@ -299,83 +315,66 @@ def decode(
     overrides: dict[type, type[Decoder]] | None = None,
 ):
     return Decoder(
-        obj_data, locator=locator, parent=None, obj_id=None, overrides=overrides
+        obj_data, locator=locator, parent=None, overrides=overrides
     ).instance
 
 
-def unpack(obj_data, obj_id=Encoder.root_key, locator=default_locator):
-    return Encoder.unpack(obj_data, obj_id, locator)
-
-
-class TypeEncoder(Encoder, handler_for=type):
+class TypeEncoder(PrimitiveEncoder, handler_for=type):
     def _encode(self, obj_type):
         return get_fully_qualified_name(obj_type)
 
 
-class TypeDecoder(Decoder, handler_for=type):
+class TypeDecoder(PrimitiveDecoder, handler_for=type):
     def _decode(self, _, fully_qualified_name: str):
         return self.locator(fully_qualified_name)
 
 
 class CollectionEncoder(Encoder, handler_for=(tuple, set, list)):
     def _encode(self, obj: Collection):
-        return [Encoder(item, self, self.overrides).obj_id for item in obj]
-
-    @classmethod
-    def _unpack(cls, data, obj_data: list[str], locator=default_locator):
-        return [Encoder.unpack(data, item, locator) for item in obj_data]
+        return [Encoder(item, self, self.overrides).obj_data for item in obj]
 
 
 class CollectionDecoder(Decoder, handler_for=(tuple, set, list)):
-    def _decode(self, obj_type, obj_ids: Collection[str]):
+    def _decode(self, obj_type, obj_data: Collection[Any]):
         return obj_type(
             (
                 Decoder(
-                    self.encoded_data,
-                    obj_id,
+                    encoded_obj_data,
                     self.locator,
                     self,
                     overrides=self.overrides,
                 ).instance
-                for obj_id in obj_ids
+                for encoded_obj_data in obj_data
             )
         )
 
 
 class DictEncoder(Encoder, handler_for=dict):
     def _encode(self, obj: dict):
-        return {
-            Encoder(key, self, self.overrides)
-            .obj_id: Encoder(value, self, self.overrides)
-            .obj_id
-            for key, value in obj.items()
-        }
-
-    @classmethod
-    def _unpack(
-        cls,
-        data: dict[str, Any],
-        obj_data: dict[str, str],
-        locator=default_locator,
-    ):
         return [
-            (
-                Encoder.unpack(data, key, locator=locator),
-                Encoder.unpack(data, value, locator=locator),
+            *zip(
+                *(
+                    (
+                        Encoder(obj, self, self.overrides).obj_data
+                        for obj in item
+                    )
+                    for item in obj.items()
+                )
             )
-            for key, value in obj_data.items()
         ]
 
 
 class DictDecoder(Decoder, handler_for=dict):
-    def _decode(self, obj_type: type, value: dict) -> Any:
-        return {
-            Decoder(
-                self.encoded_data, key, self.locator, self, overrides=self.overrides
-            )
-            .instance: Decoder(
-                self.encoded_data, value, self.locator, self, overrides=self.overrides
-            )
-            .instance
-            for key, value in value.items()
-        }
+    def _decode(self, obj_type: type, items: list[list, list]) -> Any:
+        return (
+            {
+                Decoder(key, self.locator, self, overrides=self.overrides)
+                .instance: Decoder(
+                    item, self.locator, self, overrides=self.overrides
+                )
+                .instance
+                for key, item in zip(*items)
+            }
+            if items
+            else {}
+        )

@@ -2,21 +2,14 @@ from typing import Any
 
 from pypg import Property, PropertyClass, PropertyType, Trait
 from pypg.traits.metadata import MetadataTrait
-from pypg.transcode import Decoder, Encoder, default_locator
+from pypg.transcode import Decoder, Encoder
 
 
 class PropertyClassEncoder(Encoder, handler_for=PropertyClass):
     def _encode(self, obj: PropertyClass):
         return {
-            p.name: Encoder(p.get(obj), self, self.overrides).obj_id
+            p.name: Encoder(p.get(obj), self, self.overrides).obj_data
             for p in type(obj).properties
-        }
-
-    @classmethod
-    def _unpack(cls, data, obj_data: dict[str, str], locator=default_locator):
-        return {
-            name: Encoder.unpack(data, item_id, locator)
-            for name, item_id in obj_data.items()
         }
 
 
@@ -25,7 +18,6 @@ class PropertyClassDecoder(Decoder, handler_for=PropertyClass):
         return obj_type(
             **{
                 name: Decoder(
-                    self.encoded_data,
                     attr,
                     self.locator,
                     self,
@@ -39,18 +31,9 @@ class PropertyClassDecoder(Decoder, handler_for=PropertyClass):
 class PropertyEncoder(Encoder, handler_for=Property):
     def _encode(self, p: Property):
         return {
-            "value_type": Encoder(p.value_type, self, self.overrides).obj_id,
+            "value_type": Encoder(p.value_type, self, self.overrides).obj_data,
             "traits": [
-                Encoder(t, self, self.overrides).obj_id for t in p.traits
-            ],
-        }
-
-    @classmethod
-    def _unpack(cls, data, obj_data, locator=default_locator):
-        return {
-            "value_type": Encoder.unpack(data, obj_data["value_type"]),
-            "traits": [
-                Encoder.unpack(data, item) for item in obj_data["traits"]
+                Encoder(t, self, self.overrides).obj_data for t in p.traits
             ],
         }
 
@@ -62,11 +45,7 @@ class TraitEncoder(Encoder, handler_for=Trait):
 
 class MetadataTraitEncoder(Encoder, handler_for=MetadataTrait):
     def _encode(self, obj: MetadataTrait):
-        return {"value": Encoder(obj.value, self, self.overrides).obj_id}
-
-    @classmethod
-    def _unpack(cls, data, obj_data, locator=default_locator):
-        return {"value": Encoder.unpack(data, obj_data["value"], locator)}
+        return {"value": Encoder(obj.value, self, self.overrides).obj_data}
 
 
 class PropertyTypeEncoder(Encoder, handler_for=PropertyType):
@@ -78,13 +57,6 @@ class PropertyTypeEncoder(Encoder, handler_for=PropertyType):
         return {
             p.name: Encoder(
                 getattr(ptype, p.name), self, self.overrides
-            ).obj_id
+            ).obj_data
             for p in ptype.properties
-        }
-
-    @classmethod
-    def _unpack(cls, data, obj_data, locator=default_locator):
-        return {
-            name: Encoder.unpack(data, data_id, locator)
-            for name, data_id in obj_data.items()
         }
