@@ -10,10 +10,11 @@ __all__ = [
 ]
 
 import json
+import typing
 from abc import abstractmethod
 from collections.abc import Collection, Iterable
-from types import NoneType
-from typing import Any, Union, Self
+from types import NoneType, GenericAlias
+from typing import Any, Union, Self, _GenericAlias
 
 from pypg.locator import Locator
 from pypg.type_registry import TypeRegistry
@@ -327,6 +328,15 @@ class TypeEncoder(PrimitiveEncoder, handler_for=type):
 class TypeDecoder(PrimitiveDecoder, handler_for=type):
     def _decode(self, _, fully_qualified_name: str):
         return self.locator(fully_qualified_name)
+
+
+class GenericEncoder(TypeEncoder, handler_for=(GenericAlias, _GenericAlias)):
+    @classmethod
+    def _get_obj_type(cls, obj):
+        return type
+
+    def _encode(self, obj_type):
+        return f"{get_fully_qualified_name(obj_type)}[{','.join(map(get_fully_qualified_name, typing.get_args(obj_type)))}]"
 
 
 class CollectionEncoder(Encoder, handler_for=(tuple, set, list)):
