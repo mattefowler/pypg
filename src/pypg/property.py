@@ -329,10 +329,6 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def __bind__(self, name, cls: PropertyType):
         self.name = name
         self.__declaring_type = cls
-        self._default, self._getter, self._setter = (
-            MethodReference(obj) if is_method(cls, obj) else obj
-            for obj in (self._default, self._getter, self._setter)
-        )
 
     def __bind_subclass__(self, cls):
         proxy = _Proxy(self, cls)

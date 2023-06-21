@@ -20,7 +20,7 @@ class Example(PropertyClass):
     def default_gain(cls):
         return 1
 
-    b = Property[float](default=default_gain)
+    b = Property[float](default=MethodReference(default_gain))
 
     @classmethod
     def _optional_c_traits(cls):
@@ -36,7 +36,7 @@ class Example(PropertyClass):
         return Unit("mm"), Observable[PostSet]()
 
     d = Property[float](
-        default=1, getter=default_sum, traits=_d_traits
+        default=1, getter=MethodReference(default_sum), traits=_d_traits
     )
 
 
