@@ -30,8 +30,8 @@ class AllowedRange(Validated, metaclass=_AllowedRangeMeta):
         self,
         minimum: LimitProvider,
         maximum: LimitProvider,
-        min_cmp: Comparator = gt,
-        max_cmp: Comparator = lt,
+        min_cmp: Comparator = ge,
+        max_cmp: Comparator = le,
     ):
         super().__init__(self.check_range)
         self.minimum, self.maximum = (
