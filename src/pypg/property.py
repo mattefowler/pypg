@@ -322,6 +322,10 @@ class Property(Generic[T], metaclass=_PropertyMeta):
             filter(None, traits if isinstance(traits, Iterable) else [traits])
         )
 
+    @property
+    def declaring_type(self):
+        return self.__declaring_type
+
     @cached_property
     def value_type(self):
         return self.__orig_class__.__args__[0]
