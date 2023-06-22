@@ -13,6 +13,7 @@ import json
 import typing
 from abc import abstractmethod
 from collections.abc import Collection, Iterable
+from enum import Enum
 from types import NoneType, GenericAlias
 from typing import Any, Union, Self, _GenericAlias
 
@@ -388,3 +389,13 @@ class DictDecoder(Decoder, handler_for=dict):
             if items
             else {}
         )
+
+
+class EnumEncoder(Encoder, handler_for=Enum):
+    def _encode(self, obj: Enum):
+        return obj.name
+
+
+class EnumDecoder(Decoder, handler_for=Enum):
+    def _decode(self, obj_type: type[Enum], value: str) -> Any:
+        return obj_type[value]
