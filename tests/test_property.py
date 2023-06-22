@@ -46,6 +46,9 @@ class PropertyTest(TestCase):
         ex = Example()
         self.assertEqual(ex.default_poly(offset=10), mr(ex, offset=10))
 
+    def test_declaring_type(self):
+        self.assertEqual(Example.a.declaring_type, Example)
+
     def test_init(self):
         ex = Example()
         self.assertEqual(2, ex.a)
