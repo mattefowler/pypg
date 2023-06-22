@@ -1,5 +1,6 @@
 import os
 import tempfile
+from enum import Enum
 from typing import Any
 from unittest import TestCase
 
@@ -24,6 +25,15 @@ class TestClass(PropertyClass):
     )
 
 
+class EnumTest(PropertyClass):
+    class E(Enum):
+        A = 0
+        B = 1
+        C = 2
+
+    enum_prop = Property[E]()
+
+
 class TranscoderTest(TestCase):
     def test_registration(self):
         self.assertIs(DictEncoder, Encoder[dict])
@@ -41,7 +51,6 @@ class TranscoderTest(TestCase):
         self.assertIsNone(copy[0])
 
     def test_propertyclass_transcoding(self):
-
         i0 = TestClass(a=0, b=1)
         i1 = TestClass(a=1, b=2, c={i0: [i0]})
         i2 = TestClass(a=2, b=3, c={i1: [i0, i1]})
@@ -85,3 +94,14 @@ class TranscoderTest(TestCase):
         encoded = encode(ex)
         asdf = decode(encoded, overrides={Example: ExampleOverrider})
         self.assertEqual("asdf", asdf)
+
+    def test_enum_transcoding(self):
+        e = EnumTest.E.A
+        encoded = encode(e)
+        copy = decode(encoded)
+        self.assertEqual(e, copy)
+
+        et = EnumTest(enum_prop=EnumTest.E.A)
+        encoded = encode(et)
+        copy = decode(encoded)
+        self.assertEqual(et.enum_prop, copy.enum_prop)

@@ -112,9 +112,7 @@ class _InitializationContext(metaclass=_InitMeta):
 
 
 class Factory(Protocol[T]):
-    def __call__(
-        self, instance: PropertyClass, *args, **kwargs
-    ) -> T:  # pragma: no cover
+    def __call__(self, instance: PropertyClass, *args, **kwargs) -> T:  # pragma: no cover
         pass
 
 
@@ -318,9 +316,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         self.__declaring_type: PropertyType = None
         self._getter = self.default_getter if getter is None else getter
         self._setter = self.default_setter if setter is None else setter
-        self.__traits = tuple(
-            filter(None, traits if isinstance(traits, Iterable) else [traits])
-        )
+        self.__traits = tuple(filter(None, traits if isinstance(traits, Iterable) else [traits]))
 
     @cached_property
     def value_type(self):
@@ -329,6 +325,10 @@ class Property(Generic[T], metaclass=_PropertyMeta):
     def __bind__(self, name, cls: PropertyType):
         self.name = name
         self.__declaring_type = cls
+
+    @property
+    def declaring_type(self) -> PropertyType:
+        return self.__declaring_type
 
     def __bind_subclass__(self, cls):
         proxy = _Proxy(self, cls)
@@ -356,11 +356,7 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         Returns:
             a default of this property for the instance provided.
         """
-        return (
-            self._default(instance)
-            if isinstance(self._default, (FunctionReference, Callable))
-            else self._default
-        )
+        return self._default(instance) if isinstance(self._default, (FunctionReference, Callable)) else self._default
 
     @cached_property
     def attribute_key(self):
@@ -459,9 +455,7 @@ class _Proxy:
     def __init__(self, p: Property, owner: type[PropertyClass]):
         self._property = p
         self.__owner = owner
-        self.__traits = tuple(
-            itertools.chain.from_iterable(map(self.__get_traits, self._property.traits))
-        )
+        self.__traits = tuple(itertools.chain.from_iterable(map(self.__get_traits, self._property.traits)))
         self.__post_get = tuple(t for t in self.__traits if isinstance(t, PostGet))
         self.__pre_set = tuple(t for t in self.__traits if isinstance(t, PreSet))
         self.__post_set = tuple(t for t in self.__traits if isinstance(t, PostSet))
