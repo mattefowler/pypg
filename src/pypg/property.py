@@ -407,10 +407,10 @@ class Property(Generic[T], metaclass=_PropertyMeta):
 
     def __get__(self, instance: PropertyClass, owner: PropertyType):
         proxy = self._subclass_proxies[owner]
-        return proxy if instance is None else proxy.get(instance)
+        return proxy if instance is None else proxy.__get__(instance, owner)
 
     def __set__(self, instance, value):
-        self._subclass_proxies[type(instance)].set(instance, value)
+        self._subclass_proxies[type(instance)].__set__(instance, value)
 
     def get(self, instance) -> T:
         """
@@ -480,14 +480,14 @@ class _Proxy:
                 yield from result
 
     @wraps(Property.get)
-    def get(self, instance):
+    def __get__(self, instance, owner):
         result = self._property._getter(instance)
         for t in self.__post_get:
             result = t.apply(instance, result)
         return result
 
     @wraps(Property.set)
-    def set(self, instance, value):
+    def __set__(self, instance, value):
         for t in self.__pre_set:
             value = t.apply(instance, value)
         self._property._setter(instance, value)
