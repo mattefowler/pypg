@@ -1,3 +1,5 @@
+import json
+
 from pypg import Encoder, encode, MetadataTrait
 from pypg.property import PropertyClass, Property, PropertyType
 from pypg.property_transcoder import PropertyClassEncoder
@@ -27,3 +29,12 @@ class Config(MetadataTrait):
         if issubclass(type(p.value_type), PropertyType):
             p_val_type: PropertyType = p.value_type
             return any(filter(cls.has_config_data, p_val_type.properties))
+
+    @classmethod
+    def to_file(cls, obj, path: str):
+        with open(path, 'w') as file:
+            json.dump(cls.encode(obj), file)
+
+    @classmethod
+    def to_string(cls, obj) -> str:
+        return json.dumps(cls.encode(obj))
