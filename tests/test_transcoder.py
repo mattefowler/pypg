@@ -1,6 +1,7 @@
 import os
 import tempfile
 from enum import Enum
+from operator import attrgetter
 from typing import Any
 from unittest import TestCase
 
@@ -13,6 +14,7 @@ from pypg import (
     decode,
     encode,
 )
+from pypg.traits.config import Config
 from tests.test_property import Example
 from pypg.transcode import from_file, from_string, to_file, to_string, Decoder
 
@@ -32,6 +34,14 @@ class EnumTest(PropertyClass):
         C = 2
 
     enum_prop = Property[E]()
+
+
+class Data(PropertyClass):
+    value: str = Property[str](traits=[Config()])
+
+
+class LargeCollectionExample(PropertyClass):
+    list_prop: list[Data] = Property[list[Data]](traits=[Config()])
 
 
 class TranscoderTest(TestCase):
@@ -63,21 +73,21 @@ class TranscoderTest(TestCase):
         self.assertIs(_i0c, __i0c)
 
     def test_to_from_file(self):
-        ex = Example()
+        ex = LargeCollectionExample()
         with tempfile.TemporaryDirectory() as temp_path:
             temp_file = os.path.join(temp_path, "encoded.json")
             to_file(ex, temp_file)
             copy = from_file(temp_file)
-            self.assertIsInstance(copy, Example)
+            self.assertIsInstance(copy, LargeCollectionExample)
 
     def test_to_from_string(self):
-        ex = Example()
+        ex = LargeCollectionExample()
         s = to_string(ex)
         copy = from_string(s)
-        self.assertIsInstance(copy, Example)
+        self.assertIsInstance(copy, LargeCollectionExample)
 
     def test_invalid_type_decoding(self):
-        class LocalType(Example):
+        class LocalType(LargeCollectionExample):
             pass
 
         lt = LocalType()
@@ -90,9 +100,9 @@ class TranscoderTest(TestCase):
             def _decode(self, obj_type: type, value: Any) -> Any:
                 return "asdf"
 
-        ex = Example()
+        ex = LargeCollectionExample()
         encoded = encode(ex)
-        asdf = decode(encoded, overrides={Example: ExampleOverrider})
+        asdf = decode(encoded, overrides={LargeCollectionExample: ExampleOverrider})
         self.assertEqual("asdf", asdf)
 
     def test_enum_transcoding(self):
@@ -105,3 +115,12 @@ class TranscoderTest(TestCase):
         encoded = encode(et)
         copy = decode(encoded)
         self.assertEqual(et.enum_prop, copy.enum_prop)
+
+    def test_reference_interning(self):
+        ex = LargeCollectionExample(list_prop=[*[Data(value="hello")] * 10000, *[Data(value="world")] * 10000])
+        # In-Memory Round-Trip
+        serialized = Config.encode(ex)
+        deserialized: LargeCollectionExample = decode(serialized)
+        deserialized_list = [*map(attrgetter("value"), deserialized.list_prop)]
+        original_list = [*map(attrgetter("value"), ex.list_prop)]
+        self.assertEqual(original_list, deserialized_list)
