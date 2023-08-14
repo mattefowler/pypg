@@ -232,6 +232,8 @@ class PrimitiveDecoder(Decoder, handler_for=primitives):
 
 class _ObjectReference:
     def __init__(self, obj: Any):
+        while isinstance(obj, _ObjectReference):
+            obj = obj.obj
         self.obj = obj
 
 
