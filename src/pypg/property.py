@@ -509,6 +509,17 @@ class _Proxy:
         return f"{get_fully_qualified_name(self.__owner)}.{self._property.name}"
 
 
+def __get_obj_init_error():
+    try:
+        object(0)
+    except TypeError as te:
+        return str(te)
+    raise TypeError("Expected error not raised")
+
+
+_object_init_error = __get_obj_init_error()
+
+
 class PropertyClass(metaclass=PropertyType):
     """
     PropertyClass is a convenience base class for classes using Properties. All
@@ -517,4 +528,8 @@ class PropertyClass(metaclass=PropertyType):
     """
 
     def __init__(self, **config):
-        super().__init__(**config)
+        try:
+            super().__init__(**config)
+        except TypeError as te:
+            if str(te) == _object_init_error:
+                raise TypeError(f"received unexpected keyword arguments: {config}") from te
