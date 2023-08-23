@@ -1,5 +1,6 @@
 import os
 import tempfile
+from collections.abc import Callable
 from enum import Enum
 from operator import attrgetter
 from typing import Any
@@ -15,7 +16,6 @@ from pypg import (
     encode,
 )
 from pypg.traits.config import Config
-from tests.test_property import Example
 from pypg.transcode import from_file, from_string, to_file, to_string, Decoder
 
 
@@ -25,6 +25,13 @@ class TestClass(PropertyClass):
     c = Property[dict[PropertyClass, list[PropertyClass]]](
         default=FunctionReference(lambda *_: {})
     )
+
+
+class CallableTest(PropertyClass):
+    delegate = Property[Callable[[], None]]()
+
+    def some_method(self):
+        return self
 
 
 class EnumTest(PropertyClass):
@@ -42,6 +49,10 @@ class Data(PropertyClass):
 
 class LargeCollectionExample(PropertyClass):
     list_prop: list[Data] = Property[list[Data]](traits=[Config()])
+
+
+def free_function():
+    pass
 
 
 class TranscoderTest(TestCase):
@@ -124,3 +135,18 @@ class TranscoderTest(TestCase):
         deserialized_list = [*map(attrgetter("value"), deserialized.list_prop)]
         original_list = [*map(attrgetter("value"), ex.list_prop)]
         self.assertEqual(original_list, deserialized_list)
+
+    def test_callable_serialization(self):
+        objects = [
+            i1 := CallableTest(delegate=free_function),
+            i2 := CallableTest(delegate=i1.some_method)
+        ]
+        i1_copy, i2_copy = decode(encode(objects))
+        self.assertIs(i1_copy.delegate, free_function)
+        self.assertIs(i1_copy, i2_copy.delegate())
+
+        with self.subTest("test closure-like de/serialization"):
+            copy: CallableTest = decode(encode(i2))
+            result = copy.delegate()
+            self.assertIsInstance(result, CallableTest)
+            self.assertIs(result.delegate, free_function)

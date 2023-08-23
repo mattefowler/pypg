@@ -14,7 +14,7 @@ import typing
 from abc import abstractmethod
 from collections.abc import Collection, Iterable
 from enum import Enum
-from types import NoneType, GenericAlias
+from types import NoneType, GenericAlias, FunctionType, MethodType
 from typing import Any, Union, Self, _GenericAlias
 
 from pypg.locator import Locator
@@ -178,7 +178,7 @@ class Decoder(_Transcoder, handler_for=primitives):
 
     def __init__(
         self,
-        encoded_data: dict,
+        encoded_data: dict | list,
         locator: Locator,
         parent: Decoder | None,
         overrides: dict[type, type[Decoder]],
@@ -323,12 +323,12 @@ def decode(
     ).instance
 
 
-class TypeEncoder(PrimitiveEncoder, handler_for=type):
+class TypeEncoder(PrimitiveEncoder, handler_for=(type, FunctionType)):
     def _encode(self, obj_type):
         return get_fully_qualified_name(obj_type)
 
 
-class TypeDecoder(PrimitiveDecoder, handler_for=type):
+class TypeDecoder(PrimitiveDecoder, handler_for=(type, FunctionType)):
     def _decode(self, _, fully_qualified_name: str):
         return self.locator(fully_qualified_name)
 
@@ -401,3 +401,18 @@ class EnumEncoder(Encoder, handler_for=Enum):
 class EnumDecoder(Decoder, handler_for=Enum):
     def _decode(self, obj_type: type[Enum], value: str) -> Any:
         return obj_type[value]
+
+
+class MethodEncoder(Encoder, handler_for=MethodType):
+    def _encode(self, bound: MethodType):
+        return [
+            Encoder(bound.__self__, self, self.overrides).obj_data,
+            bound.__func__.__name__
+        ]
+
+
+class MethodDecoder(Decoder, handler_for=MethodType):
+    def _decode(self, obj_type: type, value: tuple[list, str]) -> Any:
+        instance_data, func_name = value
+        instance = Decoder(instance_data, self.locator, self, self.overrides).instance
+        return getattr(instance, func_name)
