@@ -1,3 +1,4 @@
+from types import FunctionType, MethodType
 from typing import Iterable, get_origin
 
 
@@ -22,7 +23,7 @@ def find_closest_relative(t: type, *others: type) -> type | None:
         return None
 
 
-def get_fully_qualified_name(t: type) -> str:
+def get_fully_qualified_name(t: type | FunctionType | MethodType) -> str:
     if t.__module__ == "builtins":
         return t.__qualname__
     return ".".join((t.__module__, t.__qualname__))
