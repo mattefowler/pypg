@@ -30,7 +30,7 @@ def allow_subclass(typedict: dict[str, type], fully_qualified_name: str):
 
 
 _special_cases = {
-    get_fully_qualified_name(NoneType:=type(None)): NoneType,
+    get_fully_qualified_name(NoneType := type(None)): NoneType,
     get_fully_qualified_name(FunctionType): FunctionType,
     get_fully_qualified_name(MethodType): MethodType,
 }

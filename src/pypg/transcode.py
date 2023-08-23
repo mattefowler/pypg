@@ -11,7 +11,6 @@ __all__ = [
 
 import json
 import typing
-from abc import abstractmethod
 from collections.abc import Collection, Iterable
 from enum import Enum
 from types import NoneType, GenericAlias, FunctionType, MethodType
