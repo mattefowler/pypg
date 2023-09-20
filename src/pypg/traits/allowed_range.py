@@ -43,11 +43,11 @@ class AllowedRange(Validated, metaclass=_AllowedRangeMeta):
 
     @staticmethod
     def _constant(value):
-        return lambda *_: value
+        return lambda _: value
 
     def check_range(self, instance: PropertyClass, value: float):
-        min_val = self.minimum(instance, value)
-        max_val = self.maximum(instance, value)
+        min_val = self.minimum(instance)
+        max_val = self.maximum(instance)
         min_check = min_val, self.min_cmp
         max_check = max_val, self.max_cmp
         if not all(
