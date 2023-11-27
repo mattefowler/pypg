@@ -34,6 +34,10 @@ class ObservableTest(TestCase):
             self.assertTrue(w0_delivery.await_delivery(2))
             self.assertEqual([0], self.w0_data)
 
+            self.w0.p = 1
+            self.assertTrue(w0_delivery.await_delivery(2))
+            self.assertEqual([0, 1], self.w0_data)
+
             self.assertFalse(w1_delivery.await_delivery(0))
             self.assertFalse(self.w1_data)
 
@@ -41,8 +45,9 @@ class ObservableTest(TestCase):
             self.assertTrue(w1_delivery.await_delivery(2))
             self.assertEqual([1], self.w1_data)
 
-            self.assertTrue(w0_delivery.await_delivery(0))
-            self.assertEqual([0], self.w0_data)
+            self.w0.p = 0
+            self.assertTrue(w0_delivery.await_delivery(2))
+            self.assertEqual([0, 1, 0], self.w0_data)
 
     def test_synchronous_delivery(self):
         with (
