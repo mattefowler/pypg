@@ -1,62 +1,39 @@
+from pprint import pprint
 from unittest import TestCase
 
-from pypg import decode, encode
-from pypg.transcode import unpack
+from pypg import Property, decode, encode, get_fully_qualified_name
+from pypg.traits import Observable, Unit
 from tests.test_property import Example
+
+
+class ComplexExample(Example):
+    ex = Property[Example]()
+    ex2 = Property[Example]()
 
 
 class TypeSchemaEncodingTest(TestCase):
     def test_property_type_encoding(self):
-        enc = encode(Example)
-        ex_a_enc = encode(Example.a)
-        self.assertEqual(enc[ex_a_enc["root"]], ex_a_enc[ex_a_enc["root"]])
-        for t in Example.d.traits:
-            self.assertIn(str(id(t)), enc)
-        from pprint import pprint
-
+        enc = encode(ComplexExample)
         pprint(enc)
+        fqn, (data, type_id) = enc
+        self.assertEqual(fqn, get_fully_qualified_name(ComplexExample))
+        a_fqn, (a_data, a_id) = data['a']
+        self.assertEqual(a_fqn, get_fully_qualified_name(type(ComplexExample.a)))
+        self.assertEqual(a_data['value_type'], encode(float))
+        self.assertEqual(a_data['traits'], [])
+        d_fqn, (d_data, d_id) = data['d']
+        d_traits = d_data['traits']
+        d_trait_types = {trait_type: data for trait_type, data in d_traits}
+        self.assertIn(get_fully_qualified_name(Observable), d_trait_types)
+        d_unit, d_unit_id = d_trait_types[get_fully_qualified_name(Unit)]
+        d_unit_data = d_unit['value']
+        self.assertEqual(['str',"mm"], d_unit_data)
 
     def test_type_transcoding(self):
         enc = encode(int)
-        intid = str(id(int))
-        expected = {"root": intid, intid: ["type", str(int.__name__)]}
-        self.assertEqual(expected, enc)
+        self.assertEqual(['type', 'int'], enc)
         self.assertIs(int, decode(enc))
 
-    def test_unpack_schema(self):
-        actual = unpack(encode(Example))
-        expected = [
-            "tests.test_property.Example",
-            {
-                "a": [
-                    "pypg.property.Property",
-                    {"value_type": ["type", "float"], "traits": []},
-                ],
-                "a2": [
-                    "pypg.property.Property",
-                    {"value_type": ["type", "float"], "traits": []},
-                ],
-                "b": [
-                    "pypg.property.Property",
-                    {"value_type": ["type", "float"], "traits": []},
-                ],
-                "c": [
-                    "pypg.property.Property",
-                    {"value_type": ["type", "int"], "traits": []},
-                ],
-                "d": [
-                    "pypg.property.Property",
-                    {
-                        "value_type": ["type", "float"],
-                        "traits": [
-                            ["pypg.traits.unit.Unit", {"value": ["str", "mm"]}],
-                            [
-                                "pypg.traits.observable.Observable",
-                                "['pypg.property.PostSet']",
-                            ],
-                        ],
-                    },
-                ],
-            },
-        ]
-        self.assertEqual(expected, actual)
+    def test_generic_encoding(self):
+        schema = encode(tuple[float, float])
+        self.assertEqual(schema, ['type', 'tuple[float,float]'])

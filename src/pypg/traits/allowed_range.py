@@ -30,8 +30,8 @@ class AllowedRange(Validated, metaclass=_AllowedRangeMeta):
         self,
         minimum: LimitProvider,
         maximum: LimitProvider,
-        min_cmp: Comparator = gt,
-        max_cmp: Comparator = lt,
+        min_cmp: Comparator = ge,
+        max_cmp: Comparator = le,
     ):
         super().__init__(self.check_range)
         self.minimum, self.maximum = (
@@ -43,11 +43,11 @@ class AllowedRange(Validated, metaclass=_AllowedRangeMeta):
 
     @staticmethod
     def _constant(value):
-        return lambda *_: value
+        return lambda _: value
 
     def check_range(self, instance: PropertyClass, value: float):
-        min_val = self.minimum(instance, value)
-        max_val = self.maximum(instance, value)
+        min_val = self.minimum(instance)
+        max_val = self.maximum(instance)
         min_check = min_val, self.min_cmp
         max_check = max_val, self.max_cmp
         if not all(

@@ -46,6 +46,9 @@ class PropertyTest(TestCase):
         ex = Example()
         self.assertEqual(ex.default_poly(offset=10), mr(ex, offset=10))
 
+    def test_declaring_type(self):
+        self.assertEqual(Example.a.declaring_type, Example)
+
     def test_init(self):
         ex = Example()
         self.assertEqual(2, ex.a)
@@ -90,3 +93,14 @@ class PropertyTest(TestCase):
         self.assertEqual(Example.a.value_type, float)
         self.assertEqual(Example.b.value_type, float)
         self.assertEqual(Example.c.value_type, int)
+
+    def test_config_init_exception(self):
+        class C(PropertyClass):
+            a = Property()
+
+        cfg = {"a": 0, "b": 1}
+        invalid = {"b": cfg["b"]}
+        try:
+            C(**cfg)
+        except TypeError as te:
+            self.assertIn(str(invalid), str(te))
