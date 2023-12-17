@@ -66,3 +66,18 @@ class TypeRegistryTest(TestCase):
         treg.pop(DA)
         self.assertIs(treg[DA:A], associations[A])
         self.assertIs(treg[DDA:], associations[DDA])
+
+    def test_register(self):
+        treg = TypeRegistry()
+
+        @treg.register_key(int)
+        class Foo:
+            pass
+
+        self.assertIs(treg[int], Foo)
+
+        @treg.register_value(int)
+        class Bar:
+            pass
+
+        self.assertIs(treg[Bar], int)

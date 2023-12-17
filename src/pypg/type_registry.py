@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from typing import TypeVar
 
 from pypg.type_utils import find_closest_relative
@@ -22,3 +23,19 @@ class TypeRegistry(dict[type, T]):
                 raise KeyError(f"No related types founnd for {item}")
         else:
             return super().__getitem__(item)
+
+    def register_key(self, key: type, *others: type) -> Callable[[type], type]:
+        def decorator(cls):
+            for item in (key, *others):
+                self[item] = cls
+            return cls
+
+        return decorator
+
+    def register_value(self, value: T, *others: T) -> Callable[[type], type]:
+        def decorator(cls):
+            for item in (value, *others):
+                self[cls] = item
+            return cls
+
+        return decorator
