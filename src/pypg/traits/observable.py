@@ -115,7 +115,7 @@ class OnChange(UpdatePolicy):
 
 
 class Observable(DataModifierMixin, ABC):
-    def __init_instance__(self, instance: PropertyClass):
+    def __init_instance__(self, instance: PropertyClass, _):
         setattr(instance, self.watchlist_key(self.subject), [])
 
     @classmethod
