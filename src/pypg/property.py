@@ -32,10 +32,18 @@ class PropertyType(type):
     """
 
     def __new__(mcs, name: str, bases: tuple[type], attrs: dict[str, Any]):
-        properties = tuple([
-            *(p for p in attrs.values() if isinstance(p, Property)),
-            *itertools.chain.from_iterable((b.properties for b in bases if issubclass(type(b), PropertyType)))
-        ])
+        properties = tuple(
+            [
+                *(p for p in attrs.values() if isinstance(p, Property)),
+                *itertools.chain.from_iterable(
+                    (
+                        b.properties
+                        for b in bases
+                        if issubclass(type(b), PropertyType)
+                    )
+                ),
+            ]
+        )
         cls = super().__new__(
             mcs,
             name,
@@ -61,6 +69,9 @@ class PropertyType(type):
                 cls_init(instance, *args, **init_ctx.config)
 
         cls.__init__ = initializer
+
+    def intrinsic_traits(cls) -> Iterable[Trait]:
+        return ()
 
 
 class _InitMeta(type):
@@ -115,7 +126,9 @@ class _InitializationContext(metaclass=_InitMeta):
 
 
 class Factory(Protocol[T]):
-    def __call__(self, instance: PropertyClass, *args, **kwargs) -> T:  # pragma: no cover
+    def __call__(
+        self, instance: PropertyClass, *args, **kwargs
+    ) -> T:  # pragma: no cover
         pass
 
 
@@ -169,10 +182,10 @@ class Trait:
         """
         self.subject = subject
 
-    def __init_instance__(self, instance: PropertyClass):
+    def __init_instance__(self, instance: PropertyClass, attr: Any):
         """
         Allows a Trait to participate in construction of each instance of the
-        class that it is a part of.
+        class and attribute that it is a part of.
         Args:
             instance: the instance under construction.
         """
@@ -278,7 +291,10 @@ TraitProvider = Trait | classmethod
 
 
 def is_method(cls: type, obj: Any) -> bool:
-    return isinstance(obj, (FunctionType, classmethod, staticmethod)) and obj in cls.__dict__.values()
+    return (
+        isinstance(obj, (FunctionType, classmethod, staticmethod))
+        and obj in cls.__dict__.values()
+    )
 
 
 class Property(Generic[T], metaclass=_PropertyMeta):
@@ -323,7 +339,9 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         self.__declaring_type: PropertyType = None
         self._getter = self.default_getter if getter is None else getter
         self._setter = self.default_setter if setter is None else setter
-        self.__traits = tuple(filter(None, traits if isinstance(traits, Iterable) else [traits]))
+        self.__traits = tuple(
+            filter(None, traits if isinstance(traits, Iterable) else [traits]),
+        )
 
     @property
     def declaring_type(self):
@@ -369,7 +387,11 @@ class Property(Generic[T], metaclass=_PropertyMeta):
         Returns:
             a default of this property for the instance provided.
         """
-        return self._default(instance) if isinstance(self._default, (FunctionReference, Callable)) else self._default
+        return (
+            self._default(instance)
+            if isinstance(self._default, (FunctionReference, Callable))
+            else self._default
+        )
 
     @cached_property
     def attribute_key(self):
@@ -468,10 +490,21 @@ class _Proxy:
     def __init__(self, p: Property, owner: type[PropertyClass]):
         self._property = p
         self.__owner = owner
-        self.__traits = tuple(itertools.chain.from_iterable(map(self.__get_traits, self._property.traits)))
-        self.__post_get = tuple(t for t in self.__traits if isinstance(t, PostGet))
-        self.__pre_set = tuple(t for t in self.__traits if isinstance(t, PreSet))
-        self.__post_set = tuple(t for t in self.__traits if isinstance(t, PostSet))
+        self.__traits = tuple(
+            itertools.chain.from_iterable(
+                map(self.__get_traits, self._property.traits),
+            )
+        )
+
+        self.__post_get = tuple(
+            t for t in self.__traits if isinstance(t, PostGet)
+        )
+        self.__pre_set = tuple(
+            t for t in self.__traits if isinstance(t, PreSet)
+        )
+        self.__post_set = tuple(
+            t for t in self.__traits if isinstance(t, PostSet)
+        )
         for t in self.traits:
             t.__bind__(p)
 
@@ -510,13 +543,21 @@ class _Proxy:
     @wraps(Property.__init_instance__)
     def __init_instance__(self, instance, value):
         for t in self.traits:
-            t.__init_instance__(instance)
+            t.__init_instance__(instance, value)
         self.set(instance, value)
+
+    @cached_property
+    def _value_type_traits(self):
+        return (
+            self.value_type.intrinsic_traits()
+            if issubclass(type(self._property.value_type), PropertyType)
+            else ()
+        )
 
     @property
     @wraps(Property.traits.fget)
     def traits(self):
-        return self.__traits
+        return tuple((*self.__traits, *self._value_type_traits))
 
     def __str__(self):
         return (
@@ -547,4 +588,6 @@ class PropertyClass(metaclass=PropertyType):
             super().__init__(**config)
         except TypeError as te:
             if str(te) == _object_init_error:
-                raise TypeError(f"received unexpected keyword arguments: {config}") from te
+                raise TypeError(
+                    f"received unexpected keyword arguments: {config}"
+                ) from te
