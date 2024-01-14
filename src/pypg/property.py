@@ -14,7 +14,7 @@ __all__ = [
 ]
 
 import itertools
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 from functools import cached_property, wraps
 from types import FunctionType
 from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
@@ -24,7 +24,7 @@ from pypg.type_utils import get_fully_qualified_name
 T = TypeVar("T")
 
 
-class PropertyType(type):
+class PropertyType(ABCMeta):
     """
     Metaclass for types using Properties. All PropertyTypes have an __init__
     generated that accepts keyword-arguments matching the names of the
