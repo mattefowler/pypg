@@ -1,6 +1,7 @@
 import os
 import tempfile
 from collections.abc import Callable
+from datetime import datetime
 from enum import Enum
 from operator import attrgetter
 from typing import Any
@@ -25,6 +26,7 @@ class TestClass(PropertyClass):
     c = Property[dict[PropertyClass, list[PropertyClass]]](
         default=FunctionReference(lambda *_: {})
     )
+    now = Property[datetime](default=lambda _: datetime.now())
 
 
 class CallableTest(PropertyClass):
@@ -77,6 +79,7 @@ class TranscoderTest(TestCase):
         i2 = TestClass(a=2, b=3, c={i1: [i0, i1]})
         encoded = encode(i2)
         i2c = decode(encoded)
+        self.assertEqual(i2c.now, i2.now)
         ((i1c, [i0c, _i1c]),) = i2c.c.items()
         self.assertIs(i1c, _i1c)
         ((_i0c, [__i0c]),) = i1c.c.items()
@@ -113,7 +116,9 @@ class TranscoderTest(TestCase):
 
         ex = LargeCollectionExample()
         encoded = encode(ex)
-        asdf = decode(encoded, overrides={LargeCollectionExample: ExampleOverrider})
+        asdf = decode(
+            encoded, overrides={LargeCollectionExample: ExampleOverrider}
+        )
         self.assertEqual("asdf", asdf)
 
     def test_enum_transcoding(self):
@@ -128,7 +133,12 @@ class TranscoderTest(TestCase):
         self.assertEqual(et.enum_prop, copy.enum_prop)
 
     def test_reference_interning(self):
-        ex = LargeCollectionExample(list_prop=[*[Data(value="hello")] * 10000, *[Data(value="world")] * 10000])
+        ex = LargeCollectionExample(
+            list_prop=[
+                *[Data(value="hello")] * 10000,
+                *[Data(value="world")] * 10000,
+            ]
+        )
         # In-Memory Round-Trip
         serialized = Config.encode(ex)
         deserialized: LargeCollectionExample = decode(serialized)
@@ -139,7 +149,7 @@ class TranscoderTest(TestCase):
     def test_callable_serialization(self):
         objects = [
             i1 := CallableTest(delegate=free_function),
-            i2 := CallableTest(delegate=i1.some_method)
+            i2 := CallableTest(delegate=i1.some_method),
         ]
         i1_copy, i2_copy = decode(encode(objects))
         self.assertIs(i1_copy.delegate, free_function)
