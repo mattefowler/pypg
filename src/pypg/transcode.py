@@ -12,6 +12,7 @@ __all__ = [
 import json
 import typing
 from collections.abc import Collection, Iterable
+from datetime import datetime
 from enum import Enum
 from types import NoneType, GenericAlias, FunctionType, MethodType
 from typing import Any, Union, Self, _GenericAlias
@@ -406,12 +407,24 @@ class MethodEncoder(Encoder, handler_for=MethodType):
     def _encode(self, bound: MethodType):
         return [
             Encoder(bound.__self__, self, self.overrides).obj_data,
-            bound.__func__.__name__
+            bound.__func__.__name__,
         ]
 
 
 class MethodDecoder(Decoder, handler_for=MethodType):
     def _decode(self, obj_type: type, value: tuple[list, str]) -> Any:
         instance_data, func_name = value
-        instance = Decoder(instance_data, self.locator, self, self.overrides).instance
+        instance = Decoder(
+            instance_data, self.locator, self, self.overrides
+        ).instance
         return getattr(instance, func_name)
+
+
+class DateTimeEncoder(Encoder, handler_for=datetime):
+    def _encode(self, obj: datetime):
+        return obj.timestamp()
+
+
+class DateTimeDecoder(Decoder, handler_for=datetime):
+    def _decode(self, obj_type: datetime, value: Any) -> Any:
+        return datetime.fromtimestamp(value)
