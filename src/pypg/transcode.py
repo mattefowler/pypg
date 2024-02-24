@@ -14,8 +14,8 @@ import typing
 from collections.abc import Collection, Iterable
 from datetime import datetime
 from enum import Enum
-from types import NoneType, GenericAlias, FunctionType, MethodType
-from typing import Any, Union, Self, _GenericAlias
+from types import FunctionType, GenericAlias, MethodType, NoneType
+from typing import Any, Self, Union, _GenericAlias
 
 from pypg.locator import Locator
 from pypg.type_registry import TypeRegistry
@@ -28,8 +28,6 @@ default_locator = Locator()
 
 
 class _Transcoder:
-    root_key = "root"
-
     _registry: TypeRegistry[_Transcoder] = None
 
     def __init_subclass__(
@@ -53,6 +51,18 @@ class _Transcoder:
             except KeyError:
                 pass
         return cls[obj_type]
+
+
+class MonotonicID:
+    def __init__(self):
+        self.objects: dict[object, int] = {}
+
+    def __call__(self, obj: object) -> int:
+        try:
+            return self.objects[id(obj)]
+        except KeyError:
+            self.objects[id(obj)] = (objid := len(self.objects))
+            return objid
 
 
 class Encoder(_Transcoder):
@@ -99,13 +109,15 @@ class Encoder(_Transcoder):
         self.parent = parent
         self.overrides = overrides
         if parent is None:
-            self.data: dict[str, str | list[str, Any]] = {}
+            self.data: dict[int, str | list[str, Any]] = {}
+            self.get_id = MonotonicID()
         else:
             self.data = parent.data
-        self._obj_id = id(obj)
+            self.get_id = parent.get_id
+        self._obj_id = self.get_id(obj)
         self.obj_data = self._pack(obj)
         if parent is None:
-            self.data[self.root_key] = self.obj_id
+            self.data[self._obj_id] = self.obj_id
 
     @property
     def obj_id(self) -> str:
@@ -239,7 +251,7 @@ class _ObjectReference:
 
 class _ObjectReferenceEncoder(Encoder, handler_for=_ObjectReference):
     def _encode(self, obj_ref):
-        return id(obj_ref.obj)
+        return self.get_id(obj_ref.obj)
 
 
 class _ObjectReferenceDecoder(Decoder, handler_for=_ObjectReference):
