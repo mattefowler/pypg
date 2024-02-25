@@ -12,15 +12,18 @@ class ReferenceCounted(PropertyClass, ABC):
 
     class _ReferenceCounter(DataModifierMixin[PreSet]):
         def apply(self, instance: PropertyClass, value) -> Any:
-            try:
-                current = instance.__dict__[self.subject.attribute_key]
-            except KeyError:
-                current = None
+            current = self._get_current_value(instance)
             if isinstance(current, ReferenceCounted):
                 current._dereference(instance)
             if isinstance(value, ReferenceCounted):
                 value._reference(instance)
             return value
+
+        def _get_current_value(self, instance):
+            try:
+                return instance.__dict__[self.subject.attribute_key]
+            except KeyError:
+                return None
 
     def _reference(self, instance: PropertyClass) -> None:
         self.__composers.add(instance)
