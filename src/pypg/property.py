@@ -1,18 +1,5 @@
 from __future__ import annotations
 
-__all__ = [
-    "FunctionReference",
-    "Factory",
-    "MethodReference",
-    "PostGet",
-    "PostSet",
-    "PreSet",
-    "Property",
-    "PropertyType",
-    "PropertyClass",
-    "Trait",
-]
-
 import itertools
 from abc import ABC, abstractmethod, ABCMeta
 from functools import cached_property, wraps
@@ -497,13 +484,13 @@ class _Proxy:
         )
 
         self.__post_get = tuple(
-            t for t in self.__traits if isinstance(t, PostGet)
+            t for t in self.traits if isinstance(t, PostGet)
         )
         self.__pre_set = tuple(
-            t for t in self.__traits if isinstance(t, PreSet)
+            t for t in self.traits if isinstance(t, PreSet)
         )
         self.__post_set = tuple(
-            t for t in self.__traits if isinstance(t, PostSet)
+            t for t in self.traits if isinstance(t, PostSet)
         )
         for t in self.traits:
             t.__bind__(p)
