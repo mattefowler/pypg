@@ -19,18 +19,15 @@ class PropertyType(ABCMeta):
     """
 
     def __new__(mcs, name: str, bases: tuple[type], attrs: dict[str, Any]):
-        properties = tuple(
-            [
-                *(p for p in attrs.values() if isinstance(p, Property)),
-                *itertools.chain.from_iterable(
-                    (
-                        b.properties
-                        for b in bases
-                        if issubclass(type(b), PropertyType)
-                    )
-                ),
-            ]
-        )
+        properties = [
+            p for p in attrs.values() if isinstance(p, Property)
+        ]
+        for b in bases:
+            if issubclass(type(b), PropertyType):
+                for p in b.properties:
+                    if p not in properties:
+                        properties.append(p)
+
         cls = super().__new__(
             mcs,
             name,
