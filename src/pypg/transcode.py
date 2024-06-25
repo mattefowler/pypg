@@ -11,7 +11,7 @@ __all__ = [
 
 import json
 import typing
-from collections.abc import Collection, Iterable
+from collections.abc import Collection, Iterable, Callable
 from datetime import datetime
 from enum import Enum
 from types import FunctionType, GenericAlias, MethodType, NoneType
@@ -83,6 +83,7 @@ class Encoder(_Transcoder):
         obj,
         parent: Encoder | None,
         overrides: dict[type, type[Encoder]] = None,
+        id_provider: Callable[[object], int | str] = None,
     ):
         """
         Create a new encoder for the object. If a more-specific encoder-type
@@ -97,7 +98,11 @@ class Encoder(_Transcoder):
         return super().__new__(encoder_type)
 
     def __init__(
-        self, obj, parent: Encoder | None, overrides: dict[type, type[Encoder]]
+        self,
+        obj,
+        parent: Encoder | None,
+        overrides: dict[type, type[Encoder]],
+        id_provider: Callable[[object], int | str] = None,
     ):
         """
         Initialize a new encoder for the object.
@@ -110,7 +115,7 @@ class Encoder(_Transcoder):
         self.overrides = overrides
         if parent is None:
             self.data: dict[int, str | list[str, Any]] = {}
-            self.get_id = MonotonicID()
+            self.get_id = MonotonicID() if id_provider is None else id_provider
         else:
             self.data = parent.data
             self.get_id = parent.get_id
@@ -264,30 +269,34 @@ class NoneTypeDecoder(PrimitiveDecoder, handler_for=NoneType):
         return None
 
 
-def encode(obj, overrides: dict[type, type[Encoder]] = None) -> Any:
+def encode(obj, overrides: dict[type, type[Encoder]] = None, id_provider: Callable[[object], int | str] = None) -> Any:
     """
     A convenience function to simplify the syntax of using an Encoder to
     transform an object's data into a JSON-serializable format.
     Args:
         obj: the object to be serialized.
+        overrides: encoders for specific types to use in place of previously registered handlers.
+        id_provider: an optional function used to produce IDs for each serialized object.
 
     Returns:
         transformed-data of obj
     """
-    return Encoder(obj, None, overrides).obj_data
+    return Encoder(obj, None, overrides, id_provider).obj_data
 
 
-def to_string(obj, overrides: dict[type, type[Encoder]] | None = None) -> str:
+def to_string(obj, overrides: dict[type, type[Encoder]] | None = None, id_provider: Callable[[object], int | str] = None) -> str:
     """
     A convenience function to simplify using an Encoder to transform an
     object's data into a JSON-parseable string.
     Args:
         obj: the object to be stringified.
+        overrides: encoders for specific types to use in place of previously registered handlers.
+        id_provider: an optional callable that returns a function used to produce IDs for each serialized object.
 
     Returns:
         a JSON-parseable string of the object's data.
     """
-    return json.dumps(encode(obj, overrides))
+    return json.dumps(encode(obj, overrides, id_provider))
 
 
 def from_string(
@@ -300,6 +309,8 @@ def from_string(
     of encoded object data into object instances.
     Args:
         obj: the object to be stringified.
+        locator: an optional object used to retrieve runtime-types from serialized representations.
+        overrides: encoders for specific types to use in place of previously registered handlers.
 
     Returns:
         a JSON-parseable string of the object's data.
