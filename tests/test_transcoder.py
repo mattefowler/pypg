@@ -160,3 +160,11 @@ class TranscoderTest(TestCase):
             result = copy.delegate()
             self.assertIsInstance(result, CallableTest)
             self.assertIs(result.delegate, free_function)
+
+    def test_id_provider(self):
+        obj = Data(value='test')
+        serialized = encode(obj, id_provider=id)
+        [_, [_, obj_id]] = serialized
+        self.assertEqual(obj_id, id(obj))
+        copy = decode(serialized)
+        self.assertEqual(obj.value, copy.value)
