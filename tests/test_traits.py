@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from pypg import MethodReference, PreSet
+from pypg import MethodReference, PreSet, Property, PropertyClass
 from tests.test_property import Example
 from pypg.traits import Unit, Validated
 
@@ -44,3 +44,13 @@ class TestTraits(TestCase):
             c.d = -1
         with self.assertRaises(AssertionError):
             validator.apply(c, -1)
+
+    def test_getter(self):
+        class C(PropertyClass):
+            a = Property[float](traits=[Unit("test"), Unit("test2")])
+
+        u = Unit.get(C.a)
+        self.assertEqual("test", u.value)
+        u1, u2 = Unit.get_all(C.a)
+        self.assertEqual("test2", u2.value)
+        self.assertIs(u, u1)

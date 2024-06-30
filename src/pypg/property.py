@@ -4,7 +4,7 @@ import itertools
 from abc import ABC, abstractmethod, ABCMeta
 from functools import cached_property, wraps
 from types import FunctionType
-from typing import Any, Callable, Generic, Iterable, Protocol, TypeVar
+from typing import Any, Callable, Generic, Iterable, Protocol, Self, TypeVar
 
 from pypg.type_utils import get_fully_qualified_name
 
@@ -19,9 +19,7 @@ class PropertyType(ABCMeta):
     """
 
     def __new__(mcs, name: str, bases: tuple[type], attrs: dict[str, Any]):
-        properties = [
-            p for p in attrs.values() if isinstance(p, Property)
-        ]
+        properties = [p for p in attrs.values() if isinstance(p, Property)]
         for b in bases:
             if issubclass(type(b), PropertyType):
                 for p in b.properties:
@@ -159,6 +157,17 @@ class Trait:
         Creates a new Trait instance.
         """
         self.subject: Property = None
+
+    @classmethod
+    def get(cls, subject: Property) -> Self | None:
+        try:
+            return next(t for t in subject.traits if isinstance(t, cls))
+        except StopIteration:
+            pass
+
+    @classmethod
+    def get_all(cls, subject: Property) -> list[Self]:
+        return [t for t in subject.traits if isinstance(t, cls)]
 
     def __bind__(self, subject: Property):
         """
@@ -483,9 +492,7 @@ class _Proxy:
         self.__post_get = tuple(
             t for t in self.traits if isinstance(t, PostGet)
         )
-        self.__pre_set = tuple(
-            t for t in self.traits if isinstance(t, PreSet)
-        )
+        self.__pre_set = tuple(t for t in self.traits if isinstance(t, PreSet))
         self.__post_set = tuple(
             t for t in self.traits if isinstance(t, PostSet)
         )
