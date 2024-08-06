@@ -94,14 +94,16 @@ class Overridable(Trait):
             instance_dict[instance] += 1
         except KeyError:
             instance_dict[instance] = 1
-        yield
-        count = instance_dict[instance] - 1
-        if not count:
-            instance_dict.pop(instance)
-            if not instance_dict:
-                self._overrides.pop(tid)
-        else:
-            instance_dict[instance] = count
+        try:
+            yield
+        finally:
+            count = instance_dict[instance] - 1
+            if not count:
+                instance_dict.pop(instance)
+                if not instance_dict:
+                    self._overrides.pop(tid)
+            else:
+                instance_dict[instance] = count
 
     @classmethod
     @contextlib.contextmanager
@@ -120,6 +122,8 @@ class Overridable(Trait):
         ]
         for ctx in ctxs:
             ctx.__enter__()
-        yield
-        for ctx in ctxs:
-            ctx.__exit__(None, None, None)
+        try:
+            yield
+        finally:
+            for ctx in ctxs:
+                ctx.__exit__(None, None, None)
